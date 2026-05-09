@@ -528,5 +528,94 @@ describe('--monorepo scaffold', () => {
       expect(consumer).toContain('defineConsumer');
       expect(consumer).toContain('async handle(message, c)');
     });
+
+    it('renames the worker directory when a custom workerName is provided', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: false,
+        monorepo: true,
+        worker: true,
+        workerName: 'payout-worker',
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      // Custom-named directory exists; the default 'apps/worker/' does not.
+      expect(existsSync(join(projectDir, 'apps/payout-worker/package.json'))).toBe(true);
+      expect(existsSync(join(projectDir, 'apps/worker'))).toBe(false);
+    });
+
+    it('substitutes WORKER_NAME into package + wrangler', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: false,
+        monorepo: true,
+        worker: true,
+        workerName: 'reconcile',
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const pkg = JSON.parse(
+        readFileSync(join(projectDir, 'apps/reconcile/package.json'), 'utf8'),
+      );
+      expect(pkg.name).toBe('@my-app/reconcile');
+
+      const wrangler = readFileSync(
+        join(projectDir, 'apps/reconcile/wrangler.jsonc'),
+        'utf8',
+      );
+      expect(wrangler).toContain('"name": "my-app-reconcile"');
+    });
+
+    it('root package.json gets deploy:<workerName> script', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: false,
+        monorepo: true,
+        worker: true,
+        workerName: 'notifications',
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const rootPkg = JSON.parse(
+        readFileSync(join(projectDir, 'package.json'), 'utf8'),
+      );
+      expect(rootPkg.scripts['deploy:notifications']).toBe(
+        'pnpm --filter @my-app/notifications deploy',
+      );
+      expect(rootPkg.scripts.deploy).toContain('@my-app/notifications deploy');
+    });
+
+    it('rejects invalid worker names', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await expect(
+        runScaffold({
+          targetDir: projectDir,
+          projectName: 'my-app',
+          auth: false,
+          monorepo: true,
+          worker: true,
+          workerName: 'Invalid Name',
+          packageManager: 'pnpm',
+          install: false,
+          initGit: false,
+        }),
+      ).rejects.toThrow(/Invalid worker name/);
+    });
   });
 });

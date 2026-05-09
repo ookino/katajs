@@ -11,7 +11,8 @@ const PROJECT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 type RawFlags = {
   auth?: boolean;
   monorepo?: boolean;
-  worker?: boolean;
+  /** Boolean (use default name 'worker') OR string (custom name). */
+  worker?: boolean | string;
   install?: boolean;
   pm?: string;
   git?: boolean;
@@ -23,7 +24,7 @@ async function main() {
     .command('[name]', 'Scaffold a katajs project')
     .option('--auth', 'Include Better Auth')
     .option('--monorepo', 'Scaffold as a pnpm + Turbo monorepo (apps/api + packages/db + packages/api-client)')
-    .option('--worker', 'Add an apps/worker queue-consumer Worker. Requires --monorepo.')
+    .option('--worker [name]', 'Add a queue-consumer Worker app. Optional name (e.g. "payout-worker"); defaults to "worker". Requires --monorepo.')
     .option('--no-install', 'Skip pnpm/npm/bun install')
     .option('--pm <pm>', 'Force package manager (pnpm | npm | bun)')
     .option('--no-git', 'Skip git init + initial commit')
@@ -57,14 +58,47 @@ async function run(rawName: string | undefined, flags: RawFlags) {
     flags.monorepo ?? (interactive ? await askYesNo('Scaffold as a monorepo (apps/api + shared packages)?', false) : false);
   if (p.isCancel(monorepo)) return p.cancel('Aborted.');
 
-  let worker = !!flags.worker;
+  // --worker can be: undefined (no flag), true (boolean flag), or string (custom name).
+  let worker = flags.worker !== undefined && flags.worker !== false;
+  let workerName: string;
+  if (typeof flags.worker === 'string' && flags.worker.length > 0) {
+    workerName = flags.worker;
+  } else if (worker) {
+    workerName = 'worker';
+  } else {
+    workerName = 'worker';
+  }
+
   if (monorepo && flags.worker === undefined && interactive) {
-    const answer = await askYesNo('Include a queue worker app (apps/worker)?', false);
+    const answer = await askYesNo('Include a queue worker app?', false);
     if (p.isCancel(answer)) return p.cancel('Aborted.');
     worker = !!answer;
+    if (worker) {
+      const nameAnswer = await p.text({
+        message: 'Worker name?',
+        placeholder: 'worker',
+        initialValue: 'worker',
+        validate: (v) => {
+          if (!v) return 'Required';
+          if (!PROJECT_NAME_RE.test(v))
+            return 'Use lowercase letters, digits, and hyphens.';
+          return undefined;
+        },
+      });
+      if (p.isCancel(nameAnswer)) return p.cancel('Aborted.');
+      workerName = nameAnswer;
+    }
   }
+
   if (worker && !monorepo) {
-    throw new Error('--worker requires --monorepo. apps/worker only makes sense in a monorepo layout.');
+    throw new Error(
+      '--worker requires --monorepo. A worker app only makes sense in a monorepo layout.',
+    );
+  }
+  if (worker && !PROJECT_NAME_RE.test(workerName)) {
+    throw new Error(
+      `Invalid worker name '${workerName}'. Use lowercase letters, digits, and hyphens.`,
+    );
   }
 
   const auth =
@@ -85,7 +119,7 @@ async function run(rawName: string | undefined, flags: RawFlags) {
   p.log.step(
     `Scaffolding ${green(projectName)} (` +
       `${monorepo ? 'monorepo' : 'single-api'}, ` +
-      `worker=${worker ? 'yes' : 'no'}, ` +
+      `worker=${worker ? workerName : 'no'}, ` +
       `auth=${auth ? 'yes' : 'no'}, pm=${pm}, ` +
       `install=${install ? 'yes' : 'no'}, git=${initGit ? 'yes' : 'no'})`,
   );
@@ -96,6 +130,7 @@ async function run(rawName: string | undefined, flags: RawFlags) {
     auth: !!auth,
     monorepo: !!monorepo,
     worker,
+    workerName,
     packageManager: pm,
     install,
     initGit,

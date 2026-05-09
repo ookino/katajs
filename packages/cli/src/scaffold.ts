@@ -18,12 +18,20 @@ export type ScaffoldOptions = {
   projectName: string;
   auth: boolean;
   monorepo: boolean;
-  /** Add an apps/worker queue-consumer Worker. Requires `monorepo: true`. */
+  /** Add a sibling queue-consumer Worker app. Requires `monorepo: true`. */
   worker: boolean;
+  /**
+   * Name of the worker (kebab-case). Used as the directory name (`apps/<workerName>/`),
+   * the workspace package suffix (`@<project>/<workerName>`), and the wrangler `name`.
+   * Defaults to `'worker'`.
+   */
+  workerName?: string;
   packageManager: 'pnpm' | 'npm' | 'bun';
   install: boolean;
   initGit: boolean;
 };
+
+const PROJECT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 type Tokens = Record<string, string>;
 
@@ -44,9 +52,17 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 
 export async function runScaffold(opts: ScaffoldOptions): Promise<void> {
+  const workerName = opts.workerName ?? 'worker';
+
   if (opts.worker && !opts.monorepo) {
     throw new Error(
-      `--worker requires --monorepo. apps/worker only makes sense in a monorepo layout.`,
+      `--worker requires --monorepo. apps/${workerName} only makes sense in a monorepo layout.`,
+    );
+  }
+
+  if (opts.worker && !PROJECT_NAME_RE.test(workerName)) {
+    throw new Error(
+      `Invalid worker name '${workerName}'. Use lowercase letters, digits, and hyphens (must start with a letter or digit).`,
     );
   }
 
@@ -61,6 +77,7 @@ export async function runScaffold(opts: ScaffoldOptions): Promise<void> {
   const tokens: Tokens = {
     PROJECT_NAME: opts.projectName,
     TODAY_ISO: new Date().toISOString().slice(0, 10),
+    WORKER_NAME: workerName,
   };
 
   copyTemplate(templateRoot, opts.targetDir, tokens);
@@ -74,6 +91,15 @@ export async function runScaffold(opts: ScaffoldOptions): Promise<void> {
       throw new Error(`Worker template not found: ${workerRoot}`);
     }
     copyTemplate(workerRoot, opts.targetDir, tokens);
+    // The worker template ships under `apps/worker/`; rename to the user's
+    // chosen name when it differs.
+    if (workerName !== 'worker') {
+      const oldDir = join(opts.targetDir, 'apps', 'worker');
+      const newDir = join(opts.targetDir, 'apps', workerName);
+      if (existsSync(oldDir)) {
+        renameSync(oldDir, newDir);
+      }
+    }
     augmentForWorker(opts.targetDir, tokens);
   }
 
@@ -420,6 +446,7 @@ function augmentForAuthMonorepo(targetDir: string, tokens: Tokens): void {
  */
 function augmentForWorker(targetDir: string, tokens: Tokens): void {
   const projectName = tokens.PROJECT_NAME ?? '';
+  const workerName = tokens.WORKER_NAME ?? 'worker';
   const rootPkgPath = join(targetDir, 'package.json');
   if (!existsSync(rootPkgPath)) return;
 
@@ -428,9 +455,9 @@ function augmentForWorker(targetDir: string, tokens: Tokens): void {
   };
   pkg.scripts = {
     ...pkg.scripts,
-    deploy: `pnpm --filter @${projectName}/api deploy && pnpm --filter @${projectName}/worker deploy`,
+    deploy: `pnpm --filter @${projectName}/api deploy && pnpm --filter @${projectName}/${workerName} deploy`,
     'deploy:api': `pnpm --filter @${projectName}/api deploy`,
-    'deploy:worker': `pnpm --filter @${projectName}/worker deploy`,
+    [`deploy:${workerName}`]: `pnpm --filter @${projectName}/${workerName} deploy`,
   };
   writeFileSync(rootPkgPath, JSON.stringify(pkg, null, 2) + '\n');
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@{{PROJECT_NAME}}/worker",
+  "name": "@{{PROJECT_NAME}}/{{WORKER_NAME}}",
   "version": "0.0.0",
   "private": true,
   "type": "module",
