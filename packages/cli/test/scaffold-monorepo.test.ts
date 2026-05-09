@@ -368,4 +368,165 @@ describe('--monorepo scaffold', () => {
       expect(dvVars).toContain('BETTER_AUTH_URL=');
     });
   });
+
+  describe('--monorepo --worker', () => {
+    it('scaffolds apps/worker/ with the expected files', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: false,
+        monorepo: true,
+        worker: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      for (const f of [
+        'apps/worker/package.json',
+        'apps/worker/tsconfig.json',
+        'apps/worker/wrangler.jsonc',
+        'apps/worker/.gitignore',
+        'apps/worker/.dev.vars.example',
+        'apps/worker/src/index.ts',
+        'apps/worker/src/app.ts',
+        'apps/worker/src/types.d.ts',
+        'apps/worker/src/modules/example-consumer/index.ts',
+        'apps/worker/src/modules/example-consumer/example.consumer.ts',
+        'apps/worker/src/modules/example-consumer/example.service.ts',
+      ]) {
+        expect(existsSync(join(projectDir, f)), `missing ${f}`).toBe(true);
+      }
+    });
+
+    it('substitutes the project name into worker package + imports', async () => {
+      const projectDir = join(tmpDir, 'cool-thing');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'cool-thing',
+        auth: false,
+        monorepo: true,
+        worker: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const workerPkg = JSON.parse(
+        readFileSync(join(projectDir, 'apps/worker/package.json'), 'utf8'),
+      );
+      expect(workerPkg.name).toBe('@cool-thing/worker');
+      expect(workerPkg.dependencies['@cool-thing/db']).toBe('workspace:*');
+
+      const workerApp = readFileSync(
+        join(projectDir, 'apps/worker/src/app.ts'),
+        'utf8',
+      );
+      expect(workerApp).toContain("from '@cool-thing/db'");
+
+      const workerTypes = readFileSync(
+        join(projectDir, 'apps/worker/src/types.d.ts'),
+        'utf8',
+      );
+      expect(workerTypes).toContain("from '@cool-thing/db'");
+    });
+
+    it('worker is queue-only — no Hono routes wiring', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: false,
+        monorepo: true,
+        worker: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const workerIndex = readFileSync(
+        join(projectDir, 'apps/worker/src/index.ts'),
+        'utf8',
+      );
+      expect(workerIndex).toContain('export default { queue }');
+      expect(workerIndex).not.toContain('fetch:');
+
+      const workerApp = readFileSync(
+        join(projectDir, 'apps/worker/src/app.ts'),
+        'utf8',
+      );
+      expect(workerApp).toContain('const { queue } = createApp');
+      // No `routes:` callback — worker has no HTTP surface.
+      expect(workerApp).not.toMatch(/^\s+routes:\s*\(/m);
+    });
+
+    it('updates root package.json scripts with deploy:worker', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: false,
+        monorepo: true,
+        worker: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const rootPkg = JSON.parse(
+        readFileSync(join(projectDir, 'package.json'), 'utf8'),
+      );
+      expect(rootPkg.scripts['deploy:worker']).toBe(
+        'pnpm --filter @my-app/worker deploy',
+      );
+      expect(rootPkg.scripts['deploy:api']).toBe(
+        'pnpm --filter @my-app/api deploy',
+      );
+      expect(rootPkg.scripts.deploy).toContain('@my-app/worker deploy');
+    });
+
+    it('throws when --worker is set without --monorepo', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await expect(
+        runScaffold({
+          targetDir: projectDir,
+          projectName: 'my-app',
+          auth: false,
+          monorepo: false,
+          worker: true,
+          packageManager: 'pnpm',
+          install: false,
+          initGit: false,
+        }),
+      ).rejects.toThrow(/--worker requires --monorepo/);
+    });
+
+    it('worker example-consumer uses defineConsumer (full body inference)', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: false,
+        monorepo: true,
+        worker: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const consumer = readFileSync(
+        join(projectDir, 'apps/worker/src/modules/example-consumer/example.consumer.ts'),
+        'utf8',
+      );
+      expect(consumer).toContain('defineConsumer');
+      expect(consumer).toContain('async handle(message, c)');
+    });
+  });
 });

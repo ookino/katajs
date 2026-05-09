@@ -24,7 +24,8 @@ export type ServiceOnlyModule<
   readonly name: string;
   readonly provides: Provides;
   readonly requires: Requires;
-  readonly consumer?: ConsumerSpec;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly consumer?: ConsumerSpec<any>;
 };
 
 /**
@@ -66,7 +67,8 @@ type DefineSpecBase<
     ) => PReturns[K];
   };
   readonly requires: Requires;
-  readonly consumer?: ConsumerSpec;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly consumer?: ConsumerSpec<any>;
 };
 
 /**

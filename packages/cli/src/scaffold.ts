@@ -18,6 +18,8 @@ export type ScaffoldOptions = {
   projectName: string;
   auth: boolean;
   monorepo: boolean;
+  /** Add an apps/worker queue-consumer Worker. Requires `monorepo: true`. */
+  worker: boolean;
   packageManager: 'pnpm' | 'npm' | 'bun';
   install: boolean;
   initGit: boolean;
@@ -42,6 +44,12 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 
 export async function runScaffold(opts: ScaffoldOptions): Promise<void> {
+  if (opts.worker && !opts.monorepo) {
+    throw new Error(
+      `--worker requires --monorepo. apps/worker only makes sense in a monorepo layout.`,
+    );
+  }
+
   const templateName = opts.monorepo ? 'monorepo' : 'api';
   const templateRoot = resolve(getTemplatesDir(), templateName);
   if (!existsSync(templateRoot)) {
@@ -56,6 +64,18 @@ export async function runScaffold(opts: ScaffoldOptions): Promise<void> {
   };
 
   copyTemplate(templateRoot, opts.targetDir, tokens);
+
+  // Worker overlay: a sibling Worker app that consumes queues. Goes BEFORE
+  // the rename pass so the worker's `_gitignore` / `_dev.vars.example` get
+  // renamed alongside the rest of the tree.
+  if (opts.worker) {
+    const workerRoot = resolve(getTemplatesDir(), 'monorepo-worker');
+    if (!existsSync(workerRoot)) {
+      throw new Error(`Worker template not found: ${workerRoot}`);
+    }
+    copyTemplate(workerRoot, opts.targetDir, tokens);
+    augmentForWorker(opts.targetDir, tokens);
+  }
 
   // Rename `_gitignore` → `.gitignore` and `_dev.vars.example` →
   // `.dev.vars.example` at every depth. (npm strips bare `.gitignore` from
@@ -391,4 +411,26 @@ function augmentForAuthMonorepo(targetDir: string, tokens: Tokens): void {
       );
     }
   }
+}
+
+/**
+ * Add a `deploy:worker` script to the root package.json so the user can
+ * deploy the worker independently. The `deploy` script is updated to run
+ * both apps' deploy scripts.
+ */
+function augmentForWorker(targetDir: string, tokens: Tokens): void {
+  const projectName = tokens.PROJECT_NAME ?? '';
+  const rootPkgPath = join(targetDir, 'package.json');
+  if (!existsSync(rootPkgPath)) return;
+
+  const pkg = JSON.parse(readFileSync(rootPkgPath, 'utf8')) as {
+    scripts?: Record<string, string>;
+  };
+  pkg.scripts = {
+    ...pkg.scripts,
+    deploy: `pnpm --filter @${projectName}/api deploy && pnpm --filter @${projectName}/worker deploy`,
+    'deploy:api': `pnpm --filter @${projectName}/api deploy`,
+    'deploy:worker': `pnpm --filter @${projectName}/worker deploy`,
+  };
+  writeFileSync(rootPkgPath, JSON.stringify(pkg, null, 2) + '\n');
 }

@@ -1,0 +1,29 @@
+{
+  "name": "@{{PROJECT_NAME}}/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@{{PROJECT_NAME}}/db": "workspace:*",
+    "@hono/zod-validator": "^0.4.1",
+    "@katajs/core": "^0.1.0",
+    "@katajs/drizzle": "^0.1.0",
+    "drizzle-orm": "^0.36.4",
+    "hono": "^4.6.10",
+    "pg": "^8.13.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241112.0",
+    "@katajs/cli": "^0.1.0",
+    "@types/node": "^22.9.0",
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.86.0"
+  }
+}

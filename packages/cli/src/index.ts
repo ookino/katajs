@@ -11,6 +11,7 @@ const PROJECT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 type RawFlags = {
   auth?: boolean;
   monorepo?: boolean;
+  worker?: boolean;
   install?: boolean;
   pm?: string;
   git?: boolean;
@@ -20,8 +21,9 @@ async function main() {
   const cli = cac('create-katajs');
   cli
     .command('[name]', 'Scaffold a katajs project')
-    .option('--auth', 'Include Better Auth (single-API mode only)')
+    .option('--auth', 'Include Better Auth')
     .option('--monorepo', 'Scaffold as a pnpm + Turbo monorepo (apps/api + packages/db + packages/api-client)')
+    .option('--worker', 'Add an apps/worker queue-consumer Worker. Requires --monorepo.')
     .option('--no-install', 'Skip pnpm/npm/bun install')
     .option('--pm <pm>', 'Force package manager (pnpm | npm | bun)')
     .option('--no-git', 'Skip git init + initial commit')
@@ -55,6 +57,16 @@ async function run(rawName: string | undefined, flags: RawFlags) {
     flags.monorepo ?? (interactive ? await askYesNo('Scaffold as a monorepo (apps/api + shared packages)?', false) : false);
   if (p.isCancel(monorepo)) return p.cancel('Aborted.');
 
+  let worker = !!flags.worker;
+  if (monorepo && flags.worker === undefined && interactive) {
+    const answer = await askYesNo('Include a queue worker app (apps/worker)?', false);
+    if (p.isCancel(answer)) return p.cancel('Aborted.');
+    worker = !!answer;
+  }
+  if (worker && !monorepo) {
+    throw new Error('--worker requires --monorepo. apps/worker only makes sense in a monorepo layout.');
+  }
+
   const auth =
     flags.auth ?? (interactive ? await askYesNo('Include Better Auth?', false) : false);
   if (p.isCancel(auth)) return p.cancel('Aborted.');
@@ -73,6 +85,7 @@ async function run(rawName: string | undefined, flags: RawFlags) {
   p.log.step(
     `Scaffolding ${green(projectName)} (` +
       `${monorepo ? 'monorepo' : 'single-api'}, ` +
+      `worker=${worker ? 'yes' : 'no'}, ` +
       `auth=${auth ? 'yes' : 'no'}, pm=${pm}, ` +
       `install=${install ? 'yes' : 'no'}, git=${initGit ? 'yes' : 'no'})`,
   );
@@ -82,6 +95,7 @@ async function run(rawName: string | undefined, flags: RawFlags) {
     projectName,
     auth: !!auth,
     monorepo: !!monorepo,
+    worker,
     packageManager: pm,
     install,
     initGit,

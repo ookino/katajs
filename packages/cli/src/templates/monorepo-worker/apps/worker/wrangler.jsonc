@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "{{PROJECT_NAME}}-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "{{TODAY_ISO}}",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "<your-hyperdrive-id>",
+      "localConnectionString": "postgres://postgres:postgres@localhost:5432/{{PROJECT_NAME}}_dev"
+    }
+  ],
+
+  // Queue consumer bindings. The producer side lives in apps/api/wrangler.jsonc.
+  // Add one entry per queue this worker consumes.
+  "queues": {
+    "consumers": [
+      {
+        "queue": "example-events",
+        "max_batch_size": 100,
+        "max_batch_timeout": 30,
+        "max_retries": 3
+      }
+    ]
+  }
+}
