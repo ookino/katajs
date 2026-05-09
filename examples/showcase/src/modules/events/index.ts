@@ -12,6 +12,7 @@ export const eventsModule = defineModule({
   },
   requires: [] as const,
   // No routes — this module is internal to other modules.
+  // katajs:module-consumer
 });
 
 /** Services this module contributes to the container's `Registry`. */

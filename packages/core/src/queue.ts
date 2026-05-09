@@ -11,6 +11,26 @@ import type {
 import type { DbAdapter } from './middleware';
 
 /**
+ * Helper for defining a queue consumer with full contextual typing on the
+ * `handle` / `handleBatch` parameters. Drives contextual typing for the
+ * inner functions so `message.body` is inferred from the schema instead of
+ * widening to `unknown`.
+ *
+ *   export const ordersConsumer = defineConsumer({
+ *     queue: 'ORDER_QUEUE',
+ *     schema: OrderEventSchema,
+ *     async handle(message, c) {
+ *       message.body;  // typed as z.infer<typeof OrderEventSchema>
+ *     },
+ *   });
+ */
+export function defineConsumer<TBody>(
+  spec: ConsumerSpec<TBody>,
+): ConsumerSpec<TBody> {
+  return spec;
+}
+
+/**
  * Cloudflare Queues `Message<Body>` shape, duck-typed to avoid a hard dep on
  * `@cloudflare/workers-types`. Only the fields the framework consumes are
  * declared.

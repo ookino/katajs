@@ -12,6 +12,7 @@ export const {{camel}}Module = defineModule({
   requires: [] as const,
   routes: {{camel}}Routes,
   prefix: '/{{kebab}}',
+  // katajs:module-consumer
 });
 
 /** Services this module contributes to the container's `Registry`. */

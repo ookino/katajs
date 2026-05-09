@@ -14,6 +14,7 @@ export const postsModule = defineModule({
   requires: [] as const,
   routes: postsRoutes,
   prefix: '/posts',
+  // katajs:module-consumer
 });
 
 /**

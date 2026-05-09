@@ -15,6 +15,7 @@ export const usersModule = defineModule({
   requires: [] as const,
   routes: usersRoutes,
   prefix: '/users',
+  // katajs:module-consumer
 });
 
 /** Services this module contributes to the container's `Registry`. */

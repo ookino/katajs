@@ -176,32 +176,26 @@ export interface MessageSchema<Output = unknown> {
 }
 
 /**
- * Declares a queue consumer for a module. Exactly one of `handle` (per-
- * message, auto-ack) or `handleBatch` (batch, manual control) is required.
+ * Declares a queue consumer for a module. Provide exactly one of `handle`
+ * (per-message, auto-ack) or `handleBatch` (batch, manual control). The
+ * runtime validates that one is present and throws a clear error otherwise;
+ * if both are provided, `handleBatch` wins.
  *
  * On retry exhaustion (attempts >= maxRetries), if `dlq` is set, the message
  * is sent to that binding and the original is acked. Otherwise the message
  * is acked (dropped) so it doesn't loop forever.
  */
-export type ConsumerSpec<TSchema extends MessageSchema = MessageSchema> = {
+export type ConsumerSpec<TBody = unknown> = {
   /** wrangler binding name for the queue this module consumes. */
   readonly queue: string;
   /** Zod (or compatible) schema validating message bodies. */
-  readonly schema: TSchema;
+  readonly schema: MessageSchema<TBody>;
   /** Optional wrangler binding name for the dead-letter queue. */
   readonly dlq?: string;
   /** Max attempts before routing to DLQ (or dropping). Default: 3. */
   readonly maxRetries?: number;
-} & (
-  | {
-      readonly handle: ConsumerHandler<InferSchema<TSchema>>;
-      readonly handleBatch?: never;
-    }
-  | {
-      readonly handleBatch: ConsumerBatchHandler<InferSchema<TSchema>>;
-      readonly handle?: never;
-    }
-);
-
-/** Extract the `parse(...)` return type from a `MessageSchema`. */
-export type InferSchema<S> = S extends MessageSchema<infer Out> ? Out : unknown;
+  /** Per-message handler. Auto-acks on return, auto-retries on throw. */
+  readonly handle?: ConsumerHandler<TBody>;
+  /** Batch handler. User controls ack/retry per message. */
+  readonly handleBatch?: ConsumerBatchHandler<TBody>;
+};

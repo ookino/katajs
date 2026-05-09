@@ -16,6 +16,7 @@ export const postsModule = defineModule({
   requires: ["auditService"] as const,
   routes: postsRoutes,
   prefix: "/posts",
+  // katajs:module-consumer
 });
 
 /** Services this module contributes to the container's `Registry`. */

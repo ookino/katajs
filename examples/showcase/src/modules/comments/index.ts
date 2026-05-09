@@ -25,6 +25,7 @@ export const commentsModule = defineModule({
   requires: ['postService', 'auditService'] as const,
   routes: commentsRoutes,
   prefix: '/comments',
+  // katajs:module-consumer
 });
 
 /** Services this module contributes to the container's `Registry`. */

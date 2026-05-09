@@ -4,6 +4,7 @@ export type { AnyHono, Module, RoutedModule, ServiceOnlyModule } from './module'
 export { createApp } from './app';
 export type { AppConfig, BaseApp } from './app';
 
+export { defineConsumer } from './queue';
 export type {
   BuildQueueHandlerConfig,
   QueueErrorContext,
@@ -40,7 +41,6 @@ export type {
   ConsumerBatchHandler,
   ConsumerHandler,
   ConsumerSpec,
-  InferSchema,
   MergeProvides,
   MessageSchema,
   ModuleContainer,

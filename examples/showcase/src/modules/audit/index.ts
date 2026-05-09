@@ -13,6 +13,7 @@ export const auditModule = defineModule({
   // Cross-module dep: audit fans out into events. Boot validation will fail
   // if the events module isn't passed to createApp alongside this one.
   requires: ['eventService'] as const,
+  // katajs:module-consumer
 });
 
 /** Services this module contributes to the container's `Registry`. */

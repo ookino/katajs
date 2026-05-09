@@ -70,10 +70,35 @@ pnpm katajs add route post /comments --in posts
 
 Methods: `get`, `post`, `put`, `patch`, `delete`, `options`, `head`. Path must start with `/`. The handler is inserted before the `// katajs:module-routes` anchor with a `// TODO: implement <METHOD> <path>` body.
 
+### `katajs add queue <name> --in <module>`
+
+Adds a queue consumer to an existing module — generates the consumer file, wires it into the module via anchors, and prints wrangler.jsonc + Bindings type snippets for manual paste.
+
+```bash
+pnpm katajs add queue orders --in orders
+pnpm katajs add queue order-events --in posts --dlq ORDER_EVENTS_DLQ
+pnpm katajs add queue analytics --in analytics --batch
+```
+
+Flags:
+
+- `--in <module>` *(required)* — target module
+- `--binding <BINDING>` *(optional)* — wrangler binding name. Default: `<NAME>_QUEUE` (kebab → SCREAMING_SNAKE)
+- `--dlq <DLQ_BINDING>` *(optional)* — dead-letter queue binding. When set, the generated consumer adds `dlq:` and `maxRetries: 5`
+- `--batch` *(optional flag)* — generate `handleBatch` instead of `handle`
+
+Generates `src/modules/<module>/<name>.consumer.ts` using `defineConsumer` from `@katajs/core` (drives full contextual typing on the handler — `message.body` is inferred from the schema, no `any`). Mutates `<module>/index.ts` to import the consumer and add it to `defineModule({ ..., consumer: <name>Consumer })` via the `// katajs:module-service-imports` and `// katajs:module-consumer` anchors.
+
+Two manual paste steps the CLI doesn't auto-mutate (because both touch user-customizable territory):
+
+1. **wrangler.jsonc** — add the producer, consumer, and (if `--dlq`) DLQ producer entries to the `queues` block.
+2. **`Bindings` type** in `src/app.ts` — add `<BINDING>: Queue<XxxEvent>` so `c.env.<BINDING>.send(...)` typechecks.
+
+Both snippets are printed by the command, ready to paste.
+
 ### Coming in later versions
 
 - `katajs add migration <name>`
-- `katajs add queue <name>`
 - `katajs add cron <name>`
 - `katajs add do <name>`
 - `katajs upgrade`
