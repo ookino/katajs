@@ -17,6 +17,7 @@ export type ScaffoldOptions = {
   targetDir: string;
   projectName: string;
   auth: boolean;
+  monorepo: boolean;
   packageManager: 'pnpm' | 'npm' | 'bun';
   install: boolean;
   initGit: boolean;
@@ -41,7 +42,8 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 
 export async function runScaffold(opts: ScaffoldOptions): Promise<void> {
-  const templateRoot = resolve(getTemplatesDir(), 'api');
+  const templateName = opts.monorepo ? 'monorepo' : 'api';
+  const templateRoot = resolve(getTemplatesDir(), templateName);
   if (!existsSync(templateRoot)) {
     throw new Error(`Template directory not found: ${templateRoot}`);
   }
@@ -56,23 +58,28 @@ export async function runScaffold(opts: ScaffoldOptions): Promise<void> {
   copyTemplate(templateRoot, opts.targetDir, tokens);
 
   if (opts.auth) {
-    const authRoot = resolve(getTemplatesDir(), 'auth-snippets', 'api');
-    if (!existsSync(authRoot)) {
-      throw new Error(`Auth snippet template not found: ${authRoot}`);
+    if (opts.monorepo) {
+      // --monorepo + --auth not yet supported (Phase 2). Warn but continue.
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[create-katajs] --auth + --monorepo is not yet supported (Phase 2). ' +
+          'Skipping auth scaffolding. The base monorepo project still works.',
+      );
+    } else {
+      const authRoot = resolve(getTemplatesDir(), 'auth-snippets', 'api');
+      if (!existsSync(authRoot)) {
+        throw new Error(`Auth snippet template not found: ${authRoot}`);
+      }
+      copyTemplate(authRoot, opts.targetDir, tokens);
+      augmentForAuth(opts.targetDir, tokens);
     }
-    copyTemplate(authRoot, opts.targetDir, tokens);
-    augmentForAuth(opts.targetDir, tokens);
   }
 
-  // Rename .gitignore-template -> .gitignore (npm strips bare .gitignore from packages)
-  const giSrc = join(opts.targetDir, '_gitignore');
-  if (existsSync(giSrc)) {
-    renameSync(giSrc, join(opts.targetDir, '.gitignore'));
-  }
-  const dvSrc = join(opts.targetDir, '_dev.vars.example');
-  if (existsSync(dvSrc)) {
-    renameSync(dvSrc, join(opts.targetDir, '.dev.vars.example'));
-  }
+  // Rename `_gitignore` → `.gitignore` and `_dev.vars.example` →
+  // `.dev.vars.example` at every depth in the scaffolded tree. (npm strips
+  // bare `.gitignore` from package tarballs, so templates ship them under an
+  // underscore-prefixed name.)
+  renameUnderscorePrefixed(opts.targetDir);
 
   if (opts.install) {
     runCommand(opts.packageManager, ['install'], opts.targetDir);
@@ -87,6 +94,48 @@ export async function runScaffold(opts: ScaffoldOptions): Promise<void> {
       opts.targetDir,
       true,
     );
+  }
+}
+
+/**
+ * Walk the target directory and rename any `_gitignore` to `.gitignore` and
+ * `_dev.vars.example` to `.dev.vars.example`. Shallow files at the root and
+ * nested files in subdirectories are handled in one pass.
+ */
+function renameUnderscorePrefixed(root: string): void {
+  const renamableNames = new Map<string, string>([
+    ['_gitignore', '.gitignore'],
+    ['_dev.vars.example', '.dev.vars.example'],
+  ]);
+
+  const stack: string[] = [root];
+  while (stack.length) {
+    const dir = stack.pop()!;
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const full = join(dir, entry);
+      let st;
+      try {
+        st = statSync(full);
+      } catch {
+        continue;
+      }
+      if (st.isDirectory()) {
+        // Skip node_modules just in case (shouldn't appear in a fresh scaffold).
+        if (entry === 'node_modules') continue;
+        stack.push(full);
+      } else if (st.isFile()) {
+        const target = renamableNames.get(entry);
+        if (target) {
+          renameSync(full, join(dir, target));
+        }
+      }
+    }
   }
 }
 

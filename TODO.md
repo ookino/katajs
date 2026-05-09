@@ -107,10 +107,18 @@ The static `graph.html` (Shape A) ships now. Shape B is the Nest-Devtools-style 
 
 ### 6. Documentation site
 
-- [ ] Pick a docs framework — Astro Starlight is the natural fit (also Cloudflare-friendly).
-- [ ] `docs.katajs.dev` (or similar) hosting the concept pages, API reference, recipes.
-- [ ] API reference auto-generated from `@katajs/core` source via TypeDoc or similar.
-- [ ] Searchable, light/dark mode, code copy buttons. shadcn-tier polish.
+**Stack decision: Fumadocs on TanStack Start, deployed to Cloudflare Workers.**
+
+Why this combination over Starlight: dogfoods the same deploy target users will use, lets us embed real React components in docs (live `inspectModules()` graph, Zod schema playground, Hono RPC type-assertion demo), shares vocabulary with the future `@katajs/devtools` (Vite + React + shadcn), and the `fumadocs-typescript` package can render TypeScript types directly into docs (clean way to surface `defineModule`/`createApp` signatures without hand-written drift).
+
+- [ ] **Verify the integration first** — Fumadocs's primary target is Next.js. Confirm the TanStack Start adapter is mature enough for a real docs site (a current template exists, MDX + search + code blocks + TS renderer all work). 10-minute check before committing.
+- [ ] **Scaffold the docs app** in `apps/docs/` (likely the moment we adopt a `--monorepo` shape, or start with `docs/` at root and migrate later).
+- [ ] **Migrate the 11 concept pages** from `docs/concepts/*.md` into Fumadocs's MDX. Most will copy over verbatim; some can gain interactive examples.
+- [ ] **API reference** auto-generated from `@katajs/core` source via `fumadocs-typescript` (preferred) or TypeDoc. Surfaces `defineModule`, `createApp`, `validate`, `AppError`, etc., with their full signatures.
+- [ ] **Recipes section** (replaces TODO `docs/recipes/`) — focused how-tos: RPC client, error logging to Sentry, custom middleware, Better Auth integration, etc.
+- [ ] **Live `inspectModules()` demo** — a small interactive page that lets users tweak a module list and see the graph + dependency edges update live.
+- [ ] **Domain & hosting** — `docs.katajs.dev` (or similar) hosted on Cloudflare Workers via TanStack Start's CF deploy target. Search via Orama (built into Fumadocs) or Algolia DocSearch.
+- [ ] **Polish** — shadcn-tier visuals, light/dark mode, code copy buttons, command palette (Cmd+K).
 
 ---
 

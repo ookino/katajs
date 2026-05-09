@@ -10,6 +10,7 @@ const PROJECT_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 type RawFlags = {
   auth?: boolean;
+  monorepo?: boolean;
   install?: boolean;
   pm?: string;
   git?: boolean;
@@ -19,7 +20,8 @@ async function main() {
   const cli = cac('create-katajs');
   cli
     .command('[name]', 'Scaffold a katajs project')
-    .option('--auth', 'Include Better Auth (single-API mode only in v0.1)')
+    .option('--auth', 'Include Better Auth (single-API mode only)')
+    .option('--monorepo', 'Scaffold as a pnpm + Turbo monorepo (apps/api + packages/db + packages/api-client)')
     .option('--no-install', 'Skip pnpm/npm/bun install')
     .option('--pm <pm>', 'Force package manager (pnpm | npm | bun)')
     .option('--no-git', 'Skip git init + initial commit')
@@ -49,9 +51,19 @@ async function run(rawName: string | undefined, flags: RawFlags) {
 
   const interactive = process.stdin.isTTY === true;
 
+  const monorepo =
+    flags.monorepo ?? (interactive ? await askYesNo('Scaffold as a monorepo (apps/api + shared packages)?', false) : false);
+  if (p.isCancel(monorepo)) return p.cancel('Aborted.');
+
   const auth =
     flags.auth ?? (interactive ? await askYesNo('Include Better Auth?', false) : false);
   if (p.isCancel(auth)) return p.cancel('Aborted.');
+
+  if (auth && monorepo) {
+    p.log.warn(
+      yellow('--auth + --monorepo is not yet supported (Phase 2). Auth scaffolding will be skipped.'),
+    );
+  }
 
   const detectedPm = detectPackageManager();
   const pm =
@@ -64,12 +76,18 @@ async function run(rawName: string | undefined, flags: RawFlags) {
   const install = flags.install !== false;
   const initGit = flags.git !== false;
 
-  p.log.step(`Scaffolding ${green(projectName)} (auth=${auth ? 'yes' : 'no'}, pm=${pm}, install=${install ? 'yes' : 'no'}, git=${initGit ? 'yes' : 'no'})`);
+  p.log.step(
+    `Scaffolding ${green(projectName)} (` +
+      `${monorepo ? 'monorepo' : 'single-api'}, ` +
+      `auth=${auth ? 'yes' : 'no'}, pm=${pm}, ` +
+      `install=${install ? 'yes' : 'no'}, git=${initGit ? 'yes' : 'no'})`,
+  );
 
   const opts: ScaffoldOptions = {
     targetDir,
     projectName,
     auth: !!auth,
+    monorepo: !!monorepo,
     packageManager: pm,
     install,
     initGit,
