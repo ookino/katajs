@@ -57,29 +57,26 @@ export async function runScaffold(opts: ScaffoldOptions): Promise<void> {
 
   copyTemplate(templateRoot, opts.targetDir, tokens);
 
+  // Rename `_gitignore` → `.gitignore` and `_dev.vars.example` →
+  // `.dev.vars.example` at every depth. (npm strips bare `.gitignore` from
+  // package tarballs, so templates ship them underscore-prefixed.) Done
+  // BEFORE auth augmentation so augment can read/append to the already-
+  // renamed `.dev.vars.example`.
+  renameUnderscorePrefixed(opts.targetDir);
+
   if (opts.auth) {
+    const authVariant = opts.monorepo ? 'monorepo' : 'api';
+    const authRoot = resolve(getTemplatesDir(), 'auth-snippets', authVariant);
+    if (!existsSync(authRoot)) {
+      throw new Error(`Auth snippet template not found: ${authRoot}`);
+    }
+    copyTemplate(authRoot, opts.targetDir, tokens);
     if (opts.monorepo) {
-      // --monorepo + --auth not yet supported (Phase 2). Warn but continue.
-      // eslint-disable-next-line no-console
-      console.warn(
-        '[create-katajs] --auth + --monorepo is not yet supported (Phase 2). ' +
-          'Skipping auth scaffolding. The base monorepo project still works.',
-      );
+      augmentForAuthMonorepo(opts.targetDir, tokens);
     } else {
-      const authRoot = resolve(getTemplatesDir(), 'auth-snippets', 'api');
-      if (!existsSync(authRoot)) {
-        throw new Error(`Auth snippet template not found: ${authRoot}`);
-      }
-      copyTemplate(authRoot, opts.targetDir, tokens);
       augmentForAuth(opts.targetDir, tokens);
     }
   }
-
-  // Rename `_gitignore` → `.gitignore` and `_dev.vars.example` →
-  // `.dev.vars.example` at every depth in the scaffolded tree. (npm strips
-  // bare `.gitignore` from package tarballs, so templates ship them under an
-  // underscore-prefixed name.)
-  renameUnderscorePrefixed(opts.targetDir);
 
   if (opts.install) {
     runCommand(opts.packageManager, ['install'], opts.targetDir);
@@ -285,6 +282,105 @@ function augmentForAuth(targetDir: string, _tokens: Tokens): void {
   }
 
   const dvPath = join(targetDir, '.dev.vars.example');
+  if (existsSync(dvPath)) {
+    const content = readFileSync(dvPath, 'utf8');
+    if (!content.includes('BETTER_AUTH_SECRET')) {
+      writeFileSync(
+        dvPath,
+        content.trimEnd() +
+          '\nBETTER_AUTH_SECRET="replace-me-with-a-32-byte-secret"\nBETTER_AUTH_URL="http://localhost:8787"\n',
+      );
+    }
+  }
+}
+
+/**
+ * Monorepo variant of `augmentForAuth`. Mirrors the same anchor-based
+ * mutations but the target paths are different: app.ts / types.d.ts /
+ * graph.ts live under apps/api/, the schema re-export goes in
+ * packages/db/src/index.ts, and apps/api/package.json gets two new deps
+ * (the workspace `@{{PROJECT_NAME}}/auth` and `better-auth`).
+ */
+function augmentForAuthMonorepo(targetDir: string, tokens: Tokens): void {
+  const projectName = tokens.PROJECT_NAME ?? '';
+
+  const appPath = join(targetDir, 'apps', 'api', 'src', 'app.ts');
+  if (existsSync(appPath)) {
+    let app = readFileSync(appPath, 'utf8');
+    if (!app.includes("from './modules/auth/index'")) {
+      app = insertBeforeAnchor(
+        app,
+        'module-imports',
+        "import { authModule } from './modules/auth/index';",
+      );
+      app = insertBeforeAnchor(app, 'modules', 'authModule,');
+      app = appendRouteToChain(app, 'authModule');
+      writeFileSync(appPath, app);
+    }
+  }
+
+  const typesPath = join(targetDir, 'apps', 'api', 'src', 'types.d.ts');
+  if (existsSync(typesPath)) {
+    let types = readFileSync(typesPath, 'utf8');
+    if (!types.includes("'./modules/auth/index'")) {
+      types = insertBeforeAnchor(
+        types,
+        'registry-imports',
+        "import type { AuthRegistry } from './modules/auth/index';",
+      );
+      types = insertBeforeAnchor(types, 'registry', ', AuthRegistry');
+      writeFileSync(typesPath, types);
+    }
+  }
+
+  const graphScript = join(targetDir, 'apps', 'api', 'scripts', 'graph.ts');
+  if (existsSync(graphScript)) {
+    let g = readFileSync(graphScript, 'utf8');
+    if (!g.includes("'../src/modules/auth/index'")) {
+      g = insertBeforeAnchor(
+        g,
+        'graph-imports',
+        "import { authModule } from '../src/modules/auth/index';",
+      );
+      g = insertBeforeAnchor(g, 'graph-modules', 'authModule,');
+      writeFileSync(graphScript, g);
+    }
+  }
+
+  // Re-export auth tables from packages/db so apps consume them via @<project>/db.
+  const dbIndexPath = join(targetDir, 'packages', 'db', 'src', 'index.ts');
+  if (existsSync(dbIndexPath)) {
+    const dbIndex = readFileSync(dbIndexPath, 'utf8');
+    if (!dbIndex.includes("export * from './auth-schema';")) {
+      writeFileSync(
+        dbIndexPath,
+        dbIndex.trimEnd() + "\nexport * from './auth-schema';\n",
+      );
+    }
+  }
+
+  // apps/api/package.json: add the workspace auth package + better-auth.
+  const apiPkgPath = join(targetDir, 'apps', 'api', 'package.json');
+  if (existsSync(apiPkgPath)) {
+    const pkg = JSON.parse(readFileSync(apiPkgPath, 'utf8')) as {
+      dependencies?: Record<string, string>;
+    };
+    pkg.dependencies = {
+      ...pkg.dependencies,
+      [`@${projectName}/auth`]: 'workspace:*',
+      'better-auth': '^1.0.0',
+    };
+    writeFileSync(apiPkgPath, JSON.stringify(pkg, null, 2) + '\n');
+  }
+
+  // packages/db/package.json: also pulls better-auth in (the auth-schema file is just Drizzle so it doesn't strictly need better-auth, but keeping it close is consistent).
+  // Actually NOT needed — packages/db only uses drizzle-orm. Skip.
+
+  // Bindings type — note: monorepo Bindings is in apps/api/src/app.ts (not types.d.ts).
+  // Better Auth env vars are read from c.env in user code, not augmented at the type
+  // level here. Keep it simple — user can add the binding declarations themselves.
+
+  const dvPath = join(targetDir, 'apps', 'api', '.dev.vars.example');
   if (existsSync(dvPath)) {
     const content = readFileSync(dvPath, 'utf8');
     if (!content.includes('BETTER_AUTH_SECRET')) {

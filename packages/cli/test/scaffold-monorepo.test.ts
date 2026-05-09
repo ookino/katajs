@@ -197,13 +197,10 @@ describe('--monorepo scaffold', () => {
     expect(clientSrc).not.toMatch(/^import .* from '@my-app\/api'/m);
   });
 
-  it('warns and skips auth scaffolding when --auth + --monorepo', async () => {
-    const projectDir = join(tmpDir, 'my-app');
-    const warnings: string[] = [];
-    const origWarn = console.warn;
-    console.warn = (msg: string) => warnings.push(msg);
+  describe('--monorepo --auth', () => {
+    it('scaffolds packages/auth + packages/db/auth-schema + apps/api/modules/auth', async () => {
+      const projectDir = join(tmpDir, 'my-app');
 
-    try {
       await runScaffold({
         targetDir: projectDir,
         projectName: 'my-app',
@@ -213,12 +210,162 @@ describe('--monorepo scaffold', () => {
         install: false,
         initGit: false,
       });
-    } finally {
-      console.warn = origWarn;
-    }
 
-    expect(warnings.some((w) => w.includes('--auth + --monorepo'))).toBe(true);
-    // No auth module was scaffolded
-    expect(existsSync(join(projectDir, 'apps/api/src/modules/auth'))).toBe(false);
+      // packages/auth
+      expect(existsSync(join(projectDir, 'packages/auth/package.json'))).toBe(true);
+      expect(existsSync(join(projectDir, 'packages/auth/src/auth.ts'))).toBe(true);
+      expect(existsSync(join(projectDir, 'packages/auth/src/index.ts'))).toBe(true);
+
+      // packages/db/auth-schema
+      expect(existsSync(join(projectDir, 'packages/db/src/auth-schema.ts'))).toBe(true);
+
+      // apps/api/modules/auth (4 files)
+      for (const f of [
+        'index.ts',
+        'auth.errors.ts',
+        'auth.middleware.ts',
+        'auth.routes.ts',
+      ]) {
+        expect(
+          existsSync(join(projectDir, `apps/api/src/modules/auth/${f}`)),
+          `missing apps/api/src/modules/auth/${f}`,
+        ).toBe(true);
+      }
+    });
+
+    it('substitutes the project name into @<project>/auth and @<project>/db references', async () => {
+      const projectDir = join(tmpDir, 'cool-thing');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'cool-thing',
+        auth: true,
+        monorepo: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const authPkg = JSON.parse(
+        readFileSync(join(projectDir, 'packages/auth/package.json'), 'utf8'),
+      );
+      expect(authPkg.name).toBe('@cool-thing/auth');
+      expect(authPkg.dependencies['@cool-thing/db']).toBe('workspace:*');
+
+      const authTs = readFileSync(
+        join(projectDir, 'packages/auth/src/auth.ts'),
+        'utf8',
+      );
+      expect(authTs).toContain("from '@cool-thing/db'");
+
+      const authModuleIdx = readFileSync(
+        join(projectDir, 'apps/api/src/modules/auth/index.ts'),
+        'utf8',
+      );
+      expect(authModuleIdx).toContain("from '@cool-thing/auth'");
+    });
+
+    it('mutates apps/api/src/app.ts to include authModule', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: true,
+        monorepo: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const app = readFileSync(join(projectDir, 'apps/api/src/app.ts'), 'utf8');
+      expect(app).toContain("import { authModule } from './modules/auth/index';");
+      expect(app).toMatch(/modules:\s*\[[^\]]*authModule[^\]]*\]/);
+      expect(app).toContain('.route(authModule.prefix, authModule.routes)');
+    });
+
+    it('mutates apps/api/src/types.d.ts to compose AuthRegistry', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: true,
+        monorepo: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const types = readFileSync(
+        join(projectDir, 'apps/api/src/types.d.ts'),
+        'utf8',
+      );
+      expect(types).toContain(
+        "import type { AuthRegistry } from './modules/auth/index';",
+      );
+      expect(types).toContain(', AuthRegistry');
+    });
+
+    it('re-exports auth-schema from packages/db/src/index.ts', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: true,
+        monorepo: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const dbIndex = readFileSync(
+        join(projectDir, 'packages/db/src/index.ts'),
+        'utf8',
+      );
+      expect(dbIndex).toContain("export * from './auth-schema';");
+    });
+
+    it('adds @<project>/auth + better-auth to apps/api/package.json', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: true,
+        monorepo: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const apiPkg = JSON.parse(
+        readFileSync(join(projectDir, 'apps/api/package.json'), 'utf8'),
+      );
+      expect(apiPkg.dependencies['@my-app/auth']).toBe('workspace:*');
+      expect(apiPkg.dependencies['better-auth']).toMatch(/^\^/);
+    });
+
+    it('appends BETTER_AUTH_SECRET / URL to apps/api/.dev.vars.example', async () => {
+      const projectDir = join(tmpDir, 'my-app');
+
+      await runScaffold({
+        targetDir: projectDir,
+        projectName: 'my-app',
+        auth: true,
+        monorepo: true,
+        packageManager: 'pnpm',
+        install: false,
+        initGit: false,
+      });
+
+      const dvVars = readFileSync(
+        join(projectDir, 'apps/api/.dev.vars.example'),
+        'utf8',
+      );
+      expect(dvVars).toContain('BETTER_AUTH_SECRET=');
+      expect(dvVars).toContain('BETTER_AUTH_URL=');
+    });
   });
 });

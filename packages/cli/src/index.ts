@@ -59,12 +59,6 @@ async function run(rawName: string | undefined, flags: RawFlags) {
     flags.auth ?? (interactive ? await askYesNo('Include Better Auth?', false) : false);
   if (p.isCancel(auth)) return p.cancel('Aborted.');
 
-  if (auth && monorepo) {
-    p.log.warn(
-      yellow('--auth + --monorepo is not yet supported (Phase 2). Auth scaffolding will be skipped.'),
-    );
-  }
-
   const detectedPm = detectPackageManager();
   const pm =
     flags.pm ?? detectedPm ?? (interactive ? await askPm() : 'pnpm');
