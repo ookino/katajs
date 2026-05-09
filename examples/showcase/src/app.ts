@@ -1,11 +1,13 @@
 import { createApp, type RequestVariables } from '@katajs/core';
 import { drizzleAdapter } from '@katajs/drizzle';
 import * as schema from './db/schema';
+
 import { postsModule } from './modules/posts/index';
 import { eventsModule } from './modules/events/index';
 import { auditModule } from './modules/audit/index';
 import { usersModule } from './modules/users/index';
 import { commentsModule } from './modules/comments/index';
+// katajs:module-imports
 
 export type Bindings = {
   HYPERDRIVE: Hyperdrive;
@@ -30,6 +32,7 @@ const { app } = createApp({
     usersModule,
     postsModule,
     commentsModule,
+    // katajs:modules
   ],
   middleware: [
     async (_c, next) => {
@@ -50,6 +53,7 @@ const { app } = createApp({
       .route(usersModule.prefix, usersModule.routes)
       .route(postsModule.prefix, postsModule.routes)
       .route(commentsModule.prefix, commentsModule.routes),
+  // katajs:routes
 });
 
 export default app;

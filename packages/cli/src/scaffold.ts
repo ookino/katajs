@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { appendRouteToChain, insertBeforeAnchor } from './codemod';
 
 export type ScaffoldOptions = {
   targetDir: string;
@@ -169,22 +170,16 @@ function augmentForAuth(targetDir: string, _tokens: Tokens): void {
   if (existsSync(appPath)) {
     let app = readFileSync(appPath, 'utf8');
     if (!app.includes("from './modules/auth/index'")) {
-      // 1. Add the auth module import to app.ts.
-      app = app.replace(
-        "import { postsModule } from './modules/posts/index';",
-        "import { postsModule } from './modules/posts/index';\n" +
-          "import { authModule } from './modules/auth/index';",
+      app = insertBeforeAnchor(
+        app,
+        'module-imports',
+        "import { authModule } from './modules/auth/index';",
       );
-      // 2. Add authModule to the modules list.
-      app = app.replace(
-        /modules:\s*\[postsModule\]/,
-        'modules: [postsModule, authModule]',
-      );
-      // 3. Chain the auth routes alongside posts inside the `routes` callback.
-      app = app.replace(
-        'routes: (base) => base.route(postsModule.prefix, postsModule.routes),',
-        'routes: (base) =>\n    base\n      .route(postsModule.prefix, postsModule.routes)\n      .route(authModule.prefix, authModule.routes),',
-      );
+      app = insertBeforeAnchor(app, 'modules', 'authModule,');
+      // Append .route(authModule.prefix, authModule.routes) inside the routes
+      // chain. The chain ends with a `,` — find the last `.route(` line in
+      // the routes callback and insert after it.
+      app = appendRouteToChain(app, 'authModule');
       writeFileSync(appPath, app);
     }
   }
@@ -194,15 +189,12 @@ function augmentForAuth(targetDir: string, _tokens: Tokens): void {
   if (existsSync(typesPath)) {
     let types = readFileSync(typesPath, 'utf8');
     if (!types.includes("'./modules/auth/index'")) {
-      types = types.replace(
-        "import type { PostsRegistry } from './modules/posts/index';",
-        "import type { PostsRegistry } from './modules/posts/index';\n" +
-          "import type { AuthRegistry } from './modules/auth/index';",
+      types = insertBeforeAnchor(
+        types,
+        'registry-imports',
+        "import type { AuthRegistry } from './modules/auth/index';",
       );
-      types = types.replace(
-        'interface Registry extends PostsRegistry {}',
-        'interface Registry extends PostsRegistry, AuthRegistry {}',
-      );
+      types = insertBeforeAnchor(types, 'registry', ', AuthRegistry');
       writeFileSync(typesPath, types);
     }
   }
@@ -212,12 +204,12 @@ function augmentForAuth(targetDir: string, _tokens: Tokens): void {
   if (existsSync(graphScript)) {
     let g = readFileSync(graphScript, 'utf8');
     if (!g.includes("'../src/modules/auth/index'")) {
-      g = g.replace(
-        "import { postsModule } from '../src/modules/posts/index';",
-        "import { postsModule } from '../src/modules/posts/index';\n" +
-          "import { authModule } from '../src/modules/auth/index';",
+      g = insertBeforeAnchor(
+        g,
+        'graph-imports',
+        "import { authModule } from '../src/modules/auth/index';",
       );
-      g = g.replace('const modules = [postsModule];', 'const modules = [postsModule, authModule];');
+      g = insertBeforeAnchor(g, 'graph-modules', 'authModule,');
       writeFileSync(graphScript, g);
     }
   }

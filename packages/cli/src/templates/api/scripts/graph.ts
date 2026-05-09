@@ -2,10 +2,14 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectModules } from '@katajs/core';
-import { postsModule } from '../src/modules/posts/index';
 
-// Add new modules below as your app grows.
-const modules = [postsModule];
+import { postsModule } from '../src/modules/posts/index';
+// katajs:graph-imports
+
+const modules = [
+  postsModule,
+  // katajs:graph-modules
+];
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = resolve(here, '..', 'graph.html');
