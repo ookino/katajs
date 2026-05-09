@@ -12,4 +12,24 @@
       "localConnectionString": "postgres://postgres:postgres@localhost:5432/{{PROJECT_NAME}}_dev"
     }
   ]
+
+  // Cloudflare Queues bindings. Uncomment + adjust when a module in this app
+  // declares a `consumer:` field (see docs/concepts/queues.md). Both halves
+  // are needed: producers (to send) and consumers (to receive).
+  //
+  // "queues": {
+  //   "producers": [
+  //     { "binding": "ORDER_QUEUE", "queue": "orders" },
+  //     { "binding": "ORDER_DLQ",   "queue": "orders-dlq" }
+  //   ],
+  //   "consumers": [
+  //     {
+  //       "queue": "orders",
+  //       "max_batch_size": 100,
+  //       "max_batch_timeout": 30,
+  //       "max_retries": 3,
+  //       "dead_letter_queue": "orders-dlq"
+  //     }
+  //   ]
+  // }
 }

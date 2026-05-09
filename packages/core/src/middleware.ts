@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono';
-import { makeResolver } from './container';
+import { buildContainer } from './container';
 import type {
   AppDb,
   ProvidesMap,
@@ -78,53 +78,6 @@ export function containerMiddleware(config: ContainerMiddlewareConfig): Middlewa
 
     await next();
   };
-}
-
-type BuildContainerArgs = {
-  env: unknown;
-  c: Parameters<MiddlewareHandler>[0];
-  requestId: string;
-  db: AppDb;
-  registry: ReadonlyMap<string, ServiceFactory<unknown>>;
-  runTransaction?: NonNullable<DbAdapter['runTransaction']>;
-  inTransaction: boolean;
-};
-
-function buildContainer(args: BuildContainerArgs): RequestContainer {
-  const container = {
-    env: args.env as never,
-    c: args.c,
-    requestId: args.requestId,
-    db: args.db,
-  } as unknown as RequestContainer;
-
-  (container as { resolve: RequestContainer['resolve'] }).resolve = makeResolver(
-    args.registry,
-    container,
-  ) as RequestContainer['resolve'];
-
-  (container as { withTransaction: RequestContainer['withTransaction'] }).withTransaction =
-    async (fn) => {
-      if (args.inTransaction) {
-        return fn(container);
-      }
-      if (!args.runTransaction) {
-        throw new Error(
-          '[katajs] withTransaction was called but the configured db adapter ' +
-            "does not support transactions. Use an adapter with a 'runTransaction' method.",
-        );
-      }
-      return args.runTransaction(args.db, async (txDb) => {
-        const txContainer = buildContainer({
-          ...args,
-          db: txDb,
-          inTransaction: true,
-        });
-        return fn(txContainer);
-      });
-    };
-
-  return container;
 }
 
 /**

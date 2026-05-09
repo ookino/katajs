@@ -120,3 +120,88 @@ export type ResolvedProvides<Mods extends readonly { provides: ProvidesMap }[]> 
  *   requires: [] as const                    // ✓ no cross-module deps
  */
 export type RequiresList = readonly RegistryKey[];
+
+/* ---------------------------------------------------------------------------
+ * Queue consumer types
+ *
+ * Minimal duck-typed shapes for Cloudflare Queues' runtime objects so the
+ * framework doesn't need a hard dep on `@cloudflare/workers-types`. Compatible
+ * with Cloudflare's `Message<T>` and `MessageBatch<T>` at runtime.
+ * --------------------------------------------------------------------------- */
+
+/**
+ * A queue message after `consumer.schema` has parsed its body. Mirrors the
+ * Cloudflare Queues `Message<Body>` shape, with `body` typed as the parsed
+ * value.
+ */
+export interface ValidatedMessage<Body> {
+  readonly id: string;
+  readonly timestamp: Date;
+  readonly body: Body;
+  readonly attempts: number;
+  ack(): void;
+  retry(options?: { delaySeconds?: number }): void;
+}
+
+/**
+ * A batch of validated messages. Mirrors Cloudflare's `MessageBatch<Body>`.
+ * Used by `handleBatch` consumers that want full control over per-message
+ * acking / retry instead of the per-message auto-ack default.
+ */
+export interface ValidatedBatch<Body> {
+  readonly queue: string;
+  readonly messages: readonly ValidatedMessage<Body>[];
+  ackAll(): void;
+  retryAll(options?: { delaySeconds?: number }): void;
+}
+
+/** Per-message handler: framework auto-acks on return, auto-retries on throw. */
+export type ConsumerHandler<Body> = (
+  message: ValidatedMessage<Body>,
+  c: RequestContainer,
+) => Promise<void>;
+
+/** Batch handler: user controls ack/retry by calling msg.ack() / msg.retry(). */
+export type ConsumerBatchHandler<Body> = (
+  batch: ValidatedBatch<Body>,
+  c: RequestContainer,
+) => Promise<void>;
+
+/**
+ * Minimal `ZodSchema`-like shape so the framework doesn't take a hard dep on
+ * `zod`. Any `ZodSchema` instance satisfies it.
+ */
+export interface MessageSchema<Output = unknown> {
+  parse(input: unknown): Output;
+}
+
+/**
+ * Declares a queue consumer for a module. Exactly one of `handle` (per-
+ * message, auto-ack) or `handleBatch` (batch, manual control) is required.
+ *
+ * On retry exhaustion (attempts >= maxRetries), if `dlq` is set, the message
+ * is sent to that binding and the original is acked. Otherwise the message
+ * is acked (dropped) so it doesn't loop forever.
+ */
+export type ConsumerSpec<TSchema extends MessageSchema = MessageSchema> = {
+  /** wrangler binding name for the queue this module consumes. */
+  readonly queue: string;
+  /** Zod (or compatible) schema validating message bodies. */
+  readonly schema: TSchema;
+  /** Optional wrangler binding name for the dead-letter queue. */
+  readonly dlq?: string;
+  /** Max attempts before routing to DLQ (or dropping). Default: 3. */
+  readonly maxRetries?: number;
+} & (
+  | {
+      readonly handle: ConsumerHandler<InferSchema<TSchema>>;
+      readonly handleBatch?: never;
+    }
+  | {
+      readonly handleBatch: ConsumerBatchHandler<InferSchema<TSchema>>;
+      readonly handle?: never;
+    }
+);
+
+/** Extract the `parse(...)` return type from a `MessageSchema`. */
+export type InferSchema<S> = S extends MessageSchema<infer Out> ? Out : unknown;

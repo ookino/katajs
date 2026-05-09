@@ -18,7 +18,7 @@ export type AppEnv = {
   Variables: RequestVariables;
 };
 
-const { app } = createApp({
+const { app, queue } = createApp({
   bindings: {} as Bindings,
   db: drizzleAdapter({ schema }),
   // Module order doesn't affect runtime — boot validation handles deps.
@@ -56,5 +56,6 @@ const { app } = createApp({
   // katajs:routes
 });
 
+export { queue };
 export default app;
 export type AppType = typeof app;

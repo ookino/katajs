@@ -7,6 +7,11 @@ import {
 } from './middleware';
 import { errorMapper, type ErrorMapperOptions } from './errors';
 import type { Module } from './module';
+import {
+  buildQueueHandler,
+  type QueueErrorMapperOptions,
+  type QueueHandler,
+} from './queue';
 
 /** Base Hono app produced by `createApp` (middleware + onError, no routes mounted). */
 export type BaseApp = Hono<{ Variables: RequestVariables }>;
@@ -37,6 +42,13 @@ export type AppConfig<
 
   /** Options for the auto-wired errorMapper. Pass `onUnhandled` to log to Sentry, etc. */
   errorMapper?: ErrorMapperOptions;
+
+  /**
+   * Options for the queue-side error mapper. Distinct from the HTTP `errorMapper`
+   * because queue failures don't render an HTTP response — they retry or DLQ.
+   * Pass `onUnhandled` to log queue handler failures to Sentry / Logflare / etc.
+   */
+  queueErrorMapper?: QueueErrorMapperOptions;
 
   /** Override `crypto.randomUUID` for deterministic tests. */
   generateRequestId?: () => string;
@@ -84,6 +96,14 @@ export function createApp<
 ): {
   app: ChainResult;
   modules: Modules;
+  /**
+   * Cloudflare Queues handler. Defined when at least one module declares a
+   * `consumer:` field; `undefined` otherwise. Wire it into the Worker default
+   * export alongside `fetch` to consume queue messages:
+   *
+   *   export default { fetch: app.fetch, queue };
+   */
+  queue: QueueHandler | undefined;
 } {
   validateModules(config.modules);
 
@@ -107,7 +127,16 @@ export function createApp<
   base.onError(errorMapper(config.errorMapper));
 
   const app = (config.routes ? config.routes(base) : base) as ChainResult;
-  return { app, modules: config.modules };
+
+  const queue = buildQueueHandler({
+    modules: config.modules,
+    registry,
+    db: config.db,
+    errorMapper: config.queueErrorMapper,
+    generateRequestId: config.generateRequestId,
+  });
+
+  return { app, modules: config.modules, queue };
 }
 
 function validateModules(modules: readonly Module[]): void {

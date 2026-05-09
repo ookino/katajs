@@ -1,5 +1,6 @@
 import type { Hono } from 'hono';
 import type {
+  ConsumerSpec,
   ModuleContainer,
   ProvidesMap,
   RequiresList,
@@ -13,7 +14,8 @@ export type AnyHono = Hono<any, any, any>;
  * A services-only module: defines the registry contributions and dependency
  * graph for a feature, but mounts no HTTP routes. Use for cross-cutting
  * concerns like an `events` recorder or an `audit` logger that other modules
- * fan out into.
+ * fan out into. Optionally carries a queue `consumer` so a services-only
+ * module can also process queue messages (notifications, indexing, etc.).
  */
 export type ServiceOnlyModule<
   Provides extends ProvidesMap = ProvidesMap,
@@ -22,11 +24,15 @@ export type ServiceOnlyModule<
   readonly name: string;
   readonly provides: Provides;
   readonly requires: Requires;
+  readonly consumer?: ConsumerSpec;
 };
 
 /**
  * A routed module: services + HTTP routes mounted at a fixed prefix. The
- * routes and prefix are co-required — they always come as a pair.
+ * routes and prefix are co-required — they always come as a pair. May also
+ * carry a queue `consumer` for modules that own both an HTTP surface and a
+ * queue handler (e.g., an `orders` module with CRUD routes plus a consumer
+ * that processes order events).
  */
 export type RoutedModule<
   Provides extends ProvidesMap = ProvidesMap,
@@ -60,6 +66,7 @@ type DefineSpecBase<
     ) => PReturns[K];
   };
   readonly requires: Requires;
+  readonly consumer?: ConsumerSpec;
 };
 
 /**
@@ -96,6 +103,7 @@ export function defineModule(spec: {
   requires: readonly string[];
   routes?: AnyHono;
   prefix?: string;
+  consumer?: ConsumerSpec;
 }): Module {
   if (spec.routes && spec.prefix) {
     return {
@@ -104,11 +112,13 @@ export function defineModule(spec: {
       requires: spec.requires,
       routes: spec.routes,
       prefix: spec.prefix,
+      consumer: spec.consumer,
     } as RoutedModule;
   }
   return {
     name: spec.name,
     provides: spec.provides as ProvidesMap,
     requires: spec.requires,
+    consumer: spec.consumer,
   } as ServiceOnlyModule;
 }
