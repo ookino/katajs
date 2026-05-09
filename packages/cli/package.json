@@ -1,0 +1,50 @@
+{
+  "name": "create-katajs",
+  "version": "0.1.0",
+  "description": "Scaffolding CLI for katajs projects.",
+  "keywords": [
+    "katajs",
+    "create",
+    "scaffold",
+    "cli",
+    "hono",
+    "cloudflare",
+    "workers"
+  ],
+  "license": "MIT",
+  "author": "Yaseer A. Okino <yaseerokino@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ookino/katajs.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/ookino/katajs/tree/main/packages/cli#readme",
+  "bugs": {
+    "url": "https://github.com/ookino/katajs/issues"
+  },
+  "type": "module",
+  "bin": {
+    "create-katajs": "./dist/index.js"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.8.2",
+    "cac": "^6.7.14",
+    "kolorist": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

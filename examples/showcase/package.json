@@ -1,0 +1,36 @@
+{
+  "name": "showcase-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run --exclude '**/*.postgres.test.ts'",
+    "test:pg": "vitest run test/integration.postgres.test.ts",
+    "test:all": "vitest run",
+    "test:watch": "vitest",
+    "graph": "tsx scripts/graph.ts",
+    "db:setup": "tsx scripts/setup-db.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.4.1",
+    "@katajs/core": "workspace:*",
+    "@katajs/drizzle": "workspace:*",
+    "drizzle-orm": "^0.36.4",
+    "hono": "^4.6.10",
+    "pg": "^8.13.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241112.0",
+    "@types/pg": "^8.11.10",
+    "drizzle-kit": "^0.28.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5",
+    "wrangler": "^3.86.0"
+  }
+}

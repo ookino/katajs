@@ -1,0 +1,178 @@
+# katajs
+
+> An opinionated framework for [Hono](https://hono.dev) on [Cloudflare Workers](https://developers.cloudflare.com/workers/).
+
+katajs is a thin wiring layer that gives you modules, request-scoped DI, typed validation, and Hyperdrive-backed Postgres on top of tools you already know. It doesn't replace Hono, Zod, or Drizzle — it composes them into one shape so every project starts the same way.
+
+**Status:** v0.1 — runtime is solid, ecosystem packages and devtools are next. See [TODO.md](./TODO.md) for the roadmap.
+
+---
+
+## Quickstart
+
+```bash
+pnpm create katajs my-app
+cd my-app
+pnpm install
+pnpm dev
+```
+
+That gives you a Worker with one example `posts` module, Drizzle + Hyperdrive wired up, validation, error mapping, and a `/health` route. Open `http://localhost:8787/health`.
+
+Add `--auth` to scaffold a Better Auth integration alongside it:
+
+```bash
+pnpm create katajs my-app --auth
+```
+
+---
+
+## What your code looks like
+
+A module declares what services it owns (`provides`), what services it needs from elsewhere (`requires`), and its routes:
+
+```ts
+// src/modules/posts/index.ts
+import { defineModule } from '@katajs/core';
+import { makePostService } from './posts.service';
+import { makePostRepository } from './posts.repository';
+import { postsRoutes } from './posts.routes';
+
+export const postsModule = defineModule({
+  name: 'posts',
+  provides: {
+    postRepository: (c) => makePostRepository(c.db),
+    postService: (c) => makePostService(c),
+  },
+  requires: ['auditService'] as const,
+  routes: postsRoutes,
+  prefix: '/posts',
+});
+```
+
+A route resolves whatever it needs from the per-request container:
+
+```ts
+// src/modules/posts/posts.routes.ts
+import { Hono } from 'hono';
+import { validate } from '@katajs/core';
+import { CreatePostSchema } from './posts.schema';
+
+export const postsRoutes = new Hono<AppEnv>()
+  .post('/', ...validate({ body: CreatePostSchema }), async (c) => {
+    const input = c.req.valid('json');
+    const service = c.var.resolve('postService');
+    const post = await service.create(input);
+    return c.json({ post }, 201);
+  });
+```
+
+`createApp` boots the Hono app, validates the module graph, and mounts everything:
+
+```ts
+// src/app.ts
+const { app } = createApp({
+  bindings: {} as Bindings,
+  db: drizzleAdapter({ schema }),
+  modules: [eventsModule, auditModule, postsModule],
+  routes: (base) => base
+    .get('/health', (c) => c.json({ ok: true }))
+    .route(postsModule.prefix, postsModule.routes),
+});
+
+export default app;
+export type AppType = typeof app;  // for Hono RPC
+```
+
+That's most of the framework. The rest is conventions for how modules organize files and how transactions thread through services.
+
+---
+
+## Why does this exist?
+
+Hono is excellent. Zod is excellent. Drizzle is excellent. But every Hono+Workers project I started ended up reinventing the same shapes — request context, error mapping, transaction scoping, where validation goes, how services share dependencies, where the schema lives. katajs is the version of those decisions I want to stop making twice.
+
+It's not trying to be NestJS for Workers. It is trying to be the smallest opinionated layer that makes a Hono+Cloudflare+Drizzle project boring to start.
+
+What it's **for**:
+- Backend Workers with Postgres (Hyperdrive), validation at boundaries, RPC-typed clients.
+- Projects that benefit from explicit module boundaries with explicit dependencies.
+- People who want one less decision to make at the start of every project.
+
+What it's **not for**:
+- Static sites or pure SSR — use Astro / TanStack Start.
+- Multi-runtime backends — katajs is Cloudflare-first.
+- Generic Hono utility kits — we ship one shape, not a buffet.
+
+---
+
+## What it builds on (and what it adds)
+
+| Layer | Tool | Where katajs adds value |
+|---|---|---|
+| HTTP server | [Hono](https://hono.dev) | Plumbed into module routes, RPC types preserved end-to-end |
+| Validation | [Zod](https://zod.dev) + [@hono/zod-validator](https://github.com/honojs/middleware/tree/main/packages/zod-validator) | `validate()` wrapper that throws typed errors |
+| ORM | [Drizzle ORM](https://orm.drizzle.team) | `withTransaction` wires tx-bound services through the container |
+| Postgres pool | [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) + [pg](https://node-postgres.com) | Adapter is one config call |
+| Bundler | [tsup](https://tsup.egoist.dev) | n/a |
+| Tests | [Vitest](https://vitest.dev) | n/a |
+
+The framework itself is ~1100 lines. Most of it is the module/container contract; everything else is delegated.
+
+See [docs/concepts/intro.md](./docs/concepts/intro.md) for the long-form version.
+
+---
+
+## Packages
+
+| Package | What it is |
+|---|---|
+| [`@katajs/core`](./packages/core) | The runtime — `defineModule`, `createApp`, container, errors, validation. |
+| [`@katajs/drizzle`](./packages/drizzle) | Drizzle + Hyperdrive Postgres adapter. |
+| [`create-katajs`](./packages/cli) | The scaffolder (`pnpm create katajs`). |
+
+---
+
+## Concepts
+
+The fastest way to learn katajs is the concept docs:
+
+- [Intro](./docs/concepts/intro.md) — what katajs is and isn't
+- [Modules](./docs/concepts/modules.md) — the unit of organization
+- [Container](./docs/concepts/container.md) — request-scoped DI, lazy resolution
+- [Routes](./docs/concepts/routes.md) — how routes mount, how RPC works
+
+More are landing in v0.2 (transactions, errors, validation, registry, testing, devtools, architecture).
+
+---
+
+## Repo layout
+
+```
+packages/
+  core/        — @katajs/core
+  drizzle/     — @katajs/drizzle
+  cli/         — create-katajs
+examples/
+  basic/       — minimal scaffold
+  showcase/    — every feature, with real-Postgres tests
+docs/
+  concepts/    — explainer docs
+```
+
+Build and test the whole workspace:
+
+```bash
+pnpm install
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+The showcase example tests against a real Postgres instance. See [`examples/showcase/README.md`](./examples/showcase/README.md) if it exists, otherwise: you need a local Postgres on `5432`, db `katajs_showcase_test`. Run `pnpm --filter showcase-example db:setup` then `pnpm --filter showcase-example test:pg`.
+
+---
+
+## License
+
+[MIT](./LICENSE) © Yaseer A. Okino

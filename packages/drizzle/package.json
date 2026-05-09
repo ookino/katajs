@@ -1,0 +1,61 @@
+{
+  "name": "@katajs/drizzle",
+  "version": "0.1.0",
+  "description": "Drizzle adapter for katajs — Hyperdrive-backed Postgres on Cloudflare Workers.",
+  "keywords": [
+    "katajs",
+    "drizzle",
+    "drizzle-orm",
+    "hyperdrive",
+    "cloudflare",
+    "workers",
+    "postgres"
+  ],
+  "license": "MIT",
+  "author": "Yaseer A. Okino <yaseerokino@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ookino/katajs.git",
+    "directory": "packages/drizzle"
+  },
+  "homepage": "https://github.com/ookino/katajs/tree/main/packages/drizzle#readme",
+  "bugs": {
+    "url": "https://github.com/ookino/katajs/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@katajs/core": "workspace:^",
+    "drizzle-orm": ">=0.36.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "@katajs/core": "workspace:*",
+    "drizzle-orm": "^0.36.4",
+    "pg": "^8.13.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["@cloudflare/workers-types"],
+    "baseUrl": ".",
+    "paths": {
+      "@katajs/core": ["../../packages/core/src/index.ts"],
+      "@katajs/drizzle": ["../../packages/drizzle/src/index.ts"]
+    }
+  },
+  // src/ + drizzle config only. Tests live in tsconfig.test.json so their
+  // `declare module '@katajs/core'` Registry augmentations don't leak into
+  // src/ autocomplete (TypeScript module augmentations are global per program).
+  "include": ["src/**/*", "drizzle.config.ts"]
+}

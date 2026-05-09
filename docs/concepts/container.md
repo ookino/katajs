@@ -1,0 +1,130 @@
+# Container
+
+The container is katajs's per-request DI mechanism. It hands you services on demand, builds them once per request, and tears them down at the end.
+
+## Why per-request?
+
+A Cloudflare Worker can serve many requests over its lifetime, but each request gets fresh state. The container scopes services to a single request:
+
+- **Request-scoped lifetime** — a service instantiated for request A is *not* shared with request B. No cross-request leakage.
+- **Lazy construction** — a service is built only when something resolves it. A request that never touches `auditService` never constructs one.
+- **Cached within a request** — once built, the same instance is returned for every `resolve('foo')` call in that request.
+
+This matches HTTP semantics: each request gets its own logger, its own DB connection, its own audit context.
+
+## How you use it
+
+Inside a route handler, services come off `c.var`:
+
+```ts
+.get('/:id', async (c) => {
+  const service = c.var.resolve('postService');
+  const post = await service.getById(c.req.param('id'));
+  return c.json({ post });
+});
+```
+
+`c.var.resolve` is a shortcut bound to `c.var.container.resolve`. Both work; the shortcut reads cleaner.
+
+Inside a service factory, services come off the `ModuleContainer` parameter:
+
+```ts
+export const postsModule = defineModule({
+  name: 'posts',
+  provides: {
+    postService: (c) => ({
+      async create(input) {
+        const repo = c.resolve('postRepository');
+        const audit = c.resolve('auditService');
+        // ...
+      },
+    }),
+  },
+  requires: ['auditService'] as const,
+  // ...
+});
+```
+
+Inside a `withTransaction` callback, services come off the `tx` container:
+
+```ts
+await c.withTransaction(async (tx) => {
+  const repo = tx.resolve('postRepository');  // tx-bound
+  const audit = tx.resolve('auditService');   // shared with outer
+  // ...
+});
+```
+
+See [Transactions](./transactions.md) (v0.2) for what's tx-bound vs shared.
+
+## What's on the container
+
+Every container exposes:
+
+| Member | Type | Description |
+|---|---|---|
+| `env` | `AppEnv` | Cloudflare bindings (`env.HYPERDRIVE`, etc.). |
+| `c` | `Hono.Context` | Escape hatch to the raw Hono context. |
+| `requestId` | `string` | UUID generated per request. Exposed in `X-Request-Id` response header. |
+| `db` | `AppDb` | Drizzle client (or whatever your `DbAdapter` returns). |
+| `resolve(key)` | `Registry[key]` | Look up a service by key. |
+| `withTransaction(fn)` | `Promise<T>` | Run `fn` inside a transaction. |
+
+## Strict resolve
+
+`resolve(key)` is bounded to `RegistryKey`. That means:
+
+- ✅ `c.var.resolve('postService')` — typechecks, returns `PostsService`.
+- ❌ `c.var.resolve('postSerivce')` — typo. TypeScript error.
+- ❌ `c.var.resolve('notARealKey')` — unknown key. TypeScript error.
+
+The autocomplete shows you exactly what's in the Registry. There's no `as` cast in any service or route handler in a katajs project — if it doesn't typecheck, the key isn't valid.
+
+## Module-scoped vs request-scoped views
+
+The container has two views:
+
+- **`RequestContainer`** — used in routes, middleware, anywhere outside a module's `provides`. `resolve(key)` accepts any `RegistryKey`.
+- **`ModuleContainer<PSelf, RKeys>`** — passed to a module's service factories. `resolve(key)` accepts only keys in this module's own `provides` (`PSelf`) or its `requires` (`RKeys`). Other keys still autocomplete (because the inherited Registry overload kicks in), but the narrow overloads document the contract: a service factory should reach only what its module declares.
+
+In practice you don't notice the distinction — both views accept the keys you'd expect. The narrowing only matters if you try to reach across module boundaries from inside a service factory; do that, and TypeScript still lets you (via the wider `RequestContainer.resolve`), but you'll get the looser typing as a hint that the dependency isn't declared in `requires`.
+
+## Lifecycle
+
+For each request, the container middleware (installed by `createApp` at the head of every route):
+
+1. Generates a `requestId`.
+2. Builds the `db` client by calling your adapter's `create(env)`.
+3. Constructs an empty container with a lazy resolver.
+4. Sets `c.var.container`, `c.var.resolve`, `c.var.withTransaction`, `c.var.requestId`.
+5. Sets `X-Request-Id` response header.
+6. Calls `next()`.
+
+Service factories run on first `resolve(key)`. Cycle detection throws if a factory transitively asks for itself. Errors during construction propagate up — the boundary they hit is `errorMapper`, which converts them to HTTP responses.
+
+## Why no global singletons?
+
+Workers have no concept of a process — every request is essentially independent. A "global singleton" in Worker code would be shared across requests in the same isolate, which leaks state. Per-request DI sidesteps that entire class of bug.
+
+If you genuinely need a singleton (a config object loaded from env, say), build it on the container — the cache means it's built once per request, which is functionally indistinguishable from a singleton inside the lifetime of a request.
+
+## Testing the container
+
+For unit tests of services that take a container:
+
+```ts
+import { makeTestContainer } from '@katajs/core/testing';
+
+const c = makeTestContainer({
+  db: fakeDb,
+  resolve: {
+    auditService: { log: vi.fn() },
+  },
+});
+
+const service = makePostService(c);
+await service.create(input);
+expect(c.resolve('auditService').log).toHaveBeenCalled();
+```
+
+See [Testing](./testing.md) (v0.2) for the full story.

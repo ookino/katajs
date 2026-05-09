@@ -1,0 +1,27 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.turbo/
+coverage/
+*.tsbuildinfo
+
+# Internal design notes (kept out of public repo)
+12_Framework_Spec_v*.md
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code session artifacts
+.claude/
+.agents/
+skills-lock.json
+
+# Generated artifacts
+examples/showcase/graph.html
