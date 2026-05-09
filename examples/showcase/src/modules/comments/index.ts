@@ -7,6 +7,7 @@ import {
   makeCommentService,
   type CommentService,
 } from './comments.service';
+// katajs:module-service-imports
 import { commentsRoutes } from './comments.routes';
 
 export const commentsModule = defineModule({
@@ -14,6 +15,7 @@ export const commentsModule = defineModule({
   provides: {
     commentRepository: (c): CommentRepository => makeCommentRepository(c.db),
     commentService: (c): CommentService => makeCommentService(c),
+    // katajs:module-provides
   },
   // Cross-module deps:
   //   - postService: validates the parent post exists before insert
@@ -29,6 +31,7 @@ export const commentsModule = defineModule({
 export type CommentsRegistry = {
   commentRepository: CommentRepository;
   commentService: CommentService;
+  // katajs:module-registry
 };
 
 export type { CommentRepository, CommentService };

@@ -44,13 +44,38 @@ katajs add module user-profile
 
 Names must start with a letter and contain only letters, digits, and hyphens.
 
-### Coming in v0.2
+### `katajs add service <name> --in <module>`
 
-- `katajs add service <name> --in <module>`
-- `katajs add route <method> <path> --in <module>`
+Adds a single service to an existing module.
+
+```bash
+pnpm katajs add service featured --in posts
+```
+
+Generates `src/modules/posts/featured.service.ts` and wires it into the module's `index.ts`:
+
+- New `import { makeFeaturedService, type FeaturedService } from './featured.service';` line
+- New `featuredService: (c) => makeFeaturedService(c),` entry in `provides`
+- New `featuredService: FeaturedService;` entry in the `PostsRegistry` slice
+
+The mutations target the `// katajs:module-service-imports`, `// katajs:module-provides`, and `// katajs:module-registry` anchors that ship in scaffolded modules.
+
+### `katajs add route <method> <path> --in <module>`
+
+Appends a new route handler to a module's `<module>.routes.ts` chain.
+
+```bash
+pnpm katajs add route post /comments --in posts
+```
+
+Methods: `get`, `post`, `put`, `patch`, `delete`, `options`, `head`. Path must start with `/`. The handler is inserted before the `// katajs:module-routes` anchor with a `// TODO: implement <METHOD> <path>` body.
+
+### Coming in later versions
+
 - `katajs add migration <name>`
 - `katajs add queue <name>`
 - `katajs add cron <name>`
+- `katajs add do <name>`
 - `katajs upgrade`
 
 ## How it works

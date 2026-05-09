@@ -15,4 +15,6 @@ export const postsRoutes = new Hono<AppEnv>()
     const service = c.var.resolve('postService');
     const post = await service.create(input);
     return c.json({ post }, 201);
-  });
+  })
+  // katajs:module-routes
+  ;

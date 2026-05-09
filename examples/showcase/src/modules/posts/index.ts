@@ -1,6 +1,7 @@
 import { defineModule } from "@katajs/core";
 import { makePostRepository, type PostRepository } from "./posts.repository";
 import { makePostService, type PostsService } from "./posts.service";
+// katajs:module-service-imports
 import { postsRoutes } from "./posts.routes";
 
 export const postsModule = defineModule({
@@ -8,6 +9,7 @@ export const postsModule = defineModule({
   provides: {
     postRepository: (c): PostRepository => makePostRepository(c.db),
     postService: (c): PostsService => makePostService(c),
+    // katajs:module-provides
   },
   // Cross-module: posts.create() fans out into auditService (which itself fans
   // into eventService). The dependency graph is posts → audit → events.
@@ -20,6 +22,7 @@ export const postsModule = defineModule({
 export type PostsRegistry = {
   postRepository: PostRepository;
   postService: PostsService;
+  // katajs:module-registry
 };
 
 export type { PostRepository, PostsService };

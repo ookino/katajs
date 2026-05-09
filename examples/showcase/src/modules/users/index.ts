@@ -1,6 +1,7 @@
 import { defineModule } from '@katajs/core';
 import { makeUserRepository, type UserRepository } from './users.repository';
 import { makeUserService, type UserService } from './users.service';
+// katajs:module-service-imports
 import { usersRoutes } from './users.routes';
 
 export const usersModule = defineModule({
@@ -8,6 +9,7 @@ export const usersModule = defineModule({
   provides: {
     userRepository: (c): UserRepository => makeUserRepository(c.db),
     userService: (c): UserService => makeUserService(c),
+    // katajs:module-provides
   },
   // Independent module — no cross-module deps.
   requires: [] as const,
@@ -19,6 +21,7 @@ export const usersModule = defineModule({
 export type UsersRegistry = {
   userRepository: UserRepository;
   userService: UserService;
+  // katajs:module-registry
 };
 
 export type { UserRepository, UserService };

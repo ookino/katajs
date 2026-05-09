@@ -31,4 +31,6 @@ export const commentsRoutes = new Hono<AppEnv>()
       await service.deleteOwned({ id, actorId });
       return c.json({ ok: true });
     },
-  );
+  )
+  // katajs:module-routes
+  ;

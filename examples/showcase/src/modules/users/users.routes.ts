@@ -21,4 +21,6 @@ export const usersRoutes = new Hono<AppEnv>()
     const service = c.var.resolve('userService');
     const user = await service.create(input);
     return c.json({ user }, 201);
-  });
+  })
+  // katajs:module-routes
+  ;

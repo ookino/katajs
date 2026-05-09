@@ -1,12 +1,14 @@
 import { defineModule } from '@katajs/core';
 import { makeAuditRepository, type AuditRepository } from './audit.repository';
 import { makeAuditService, type AuditService } from './audit.service';
+// katajs:module-service-imports
 
 export const auditModule = defineModule({
   name: 'audit',
   provides: {
     auditRepository: (c): AuditRepository => makeAuditRepository(c.db),
     auditService: (c): AuditService => makeAuditService(c),
+    // katajs:module-provides
   },
   // Cross-module dep: audit fans out into events. Boot validation will fail
   // if the events module isn't passed to createApp alongside this one.
@@ -17,6 +19,7 @@ export const auditModule = defineModule({
 export type AuditRegistry = {
   auditRepository: AuditRepository;
   auditService: AuditService;
+  // katajs:module-registry
 };
 
 export type { AuditRepository, AuditService };
