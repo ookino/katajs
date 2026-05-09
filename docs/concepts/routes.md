@@ -53,6 +53,64 @@ export const postsModule = defineModule({
 });
 ```
 
+## One routes file per module — by convention
+
+Every routed module ships a single `<module>.routes.ts` file. `katajs add route` appends to that file; nothing in the CLI or templates supports multiple route files per module by default. This is intentional, the same way [flat module internals are intentional](./modules.md#module-internal-layout-is-flat).
+
+If a module's routes file is approaching unwieldy size (~200 lines and counting), the framework's preferred refactor is to **split into a sibling module at a sub-prefix**, not to split the routes file:
+
+```ts
+// Instead of one bloated `posts/posts.routes.ts` with public + admin routes,
+// make two modules:
+
+const postsModule = defineModule({
+  name: 'posts',
+  prefix: '/posts',
+  routes: postsRoutes,           // public-facing routes only
+  // ...
+});
+
+const postsAdminModule = defineModule({
+  name: 'posts-admin',
+  prefix: '/posts/admin',
+  routes: postsAdminRoutes,      // admin-only routes
+  requires: ['postService'] as const,  // shares business logic
+  // ...
+});
+```
+
+Why splitting beats nesting routes files:
+
+- **Visible cross-module dependencies.** `postsAdminModule.requires: ['postService']` is right there in the source. With one big module that imports two route files, the relationship is implicit.
+- **Separate entries in the devtools graph.** `inspectModules()` shows two nodes, two prefixes, two route lists.
+- **Independent middleware.** Each module's routes file owns its own `.use()` chain — no need for path-prefix middleware to scope auth to admin routes.
+
+### The escape hatch: Hono sub-apps
+
+If you genuinely want to split the routes inside one module — the framework doesn't fight you. Hono natively supports composing sub-apps via `.route(path, subApp)`:
+
+```ts
+// posts/posts.public.routes.ts
+export const publicPostsRoutes = new Hono<AppEnv>()
+  .get('/', listHandler)
+  .get('/:id', getHandler);
+
+// posts/posts.admin.routes.ts
+export const adminPostsRoutes = new Hono<AppEnv>()
+  .post('/feature', featureHandler)
+  .delete('/:id', adminDeleteHandler);
+
+// posts/posts.routes.ts (the file `index.ts` imports)
+import { publicPostsRoutes } from './posts.public.routes';
+import { adminPostsRoutes } from './posts.admin.routes';
+
+export const postsRoutes = new Hono<AppEnv>()
+  .route('/', publicPostsRoutes)
+  .route('/admin', adminPostsRoutes);
+```
+
+The runtime treats this identically to a single chained file. RPC types still flow correctly. `katajs add route` won't know to target `posts.admin.routes.ts` — you'd add admin routes by hand. That's the cost of stepping off the convention.
+
 ## The `routes` callback in `createApp`
 
 `createApp` accepts a `routes` callback that receives the base `Hono` app and returns the chained app:
@@ -178,7 +236,7 @@ export const requireAuth = defineMiddleware(async (c, next) => {
 
 ## Errors flow through `errorMapper`
 
-Anything thrown in a route handler — domain errors, validation errors, unexpected exceptions — is caught by `errorMapper` and turned into a structured JSON response. See [Errors](./errors.md) (v0.2) for the full mapping.
+Anything thrown in a route handler — domain errors, validation errors, unexpected exceptions — is caught by `errorMapper` and turned into a structured JSON response. See [Errors](./errors.md) for the full mapping.
 
 You can pass `errorMapper` config to `createApp`:
 

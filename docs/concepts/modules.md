@@ -125,7 +125,7 @@ declare module '@katajs/core' {
 
 After that, every `c.var.resolve('postService')` call in the app autocompletes and is type-checked against the union of all module registries.
 
-See [Registry](./registry.md) (coming in v0.2) for the full story on why this pattern.
+See [Registry](./registry.md) for the full story on why this pattern.
 
 ## Boot-time validation
 
@@ -137,7 +137,7 @@ When `createApp` runs, three checks fail loudly with clear errors:
 
 These are *boot-time* errors, not runtime. The Worker won't start with an invalid graph.
 
-## File layout
+## Where modules live
 
 By convention, each module lives in `src/modules/<name>/`:
 
@@ -151,7 +151,51 @@ src/modules/posts/
   posts.errors.ts    — AppError subclasses
 ```
 
-The CLI's `katajs add module <name>` (v0.2) generates this layout.
+The CLI's `katajs add module <name>` generates this layout, and `katajs add service` and `katajs add route` look here when extending an existing module.
+
+**The runtime doesn't enforce the location.** `defineModule(...)` is a function call; `createApp({ modules: [...] })` takes objects. You can put modules anywhere — `src/`, `src/features/`, `src/<bounded-context>/`, even alongside unrelated code — and the runtime works identically. Only the CLI assumes `src/modules/`.
+
+`src/modules/` is part of the framework's opinion for three reasons:
+
+1. **Newcomer legibility.** Every katajs project looks the same. Someone opening a new repo knows where to look.
+2. **CLI tractability.** `katajs add` has one place to scaffold into without per-command flags or a config file.
+3. **Mental separation.** `src/modules/` is "framework territory." `src/lib/`, `src/db/`, `src/utils/` are yours.
+
+If you have a strong architectural reason to deviate (DDD bounded contexts at `src/<context>/`, monorepo layouts where modules live in sibling packages, cross-runtime sharing), the runtime is fine with it — you just lose CLI tooling for those modules.
+
+## Module internal layout is flat
+
+Inside a module, all the files sit at the same level. There's no `services/`, `repositories/`, or `routes/` subfolder, even when a module has multiple of each:
+
+```
+src/modules/posts/
+  index.ts
+  posts.errors.ts
+  posts.repository.ts
+  posts.routes.ts
+  posts.schema.ts
+  posts.service.ts
+  archived.service.ts        ← second service, same level as the first
+  featured.service.ts        ← third service, same level
+```
+
+`katajs add service <name> --in posts` writes new service files at the module root, not into a subfolder. This is intentional.
+
+**Why flat:** modules are meant to stay small. Most have 1–2 services and one routes file. The visual cost of a flat layout (5–8 files in one folder) is lower than the cost of empty `services/`, `routes/`, etc. folders that exist for the sake of structure. Imports stay short (`./archived.service` vs `./services/archived.service`). Every module looks the same.
+
+## When a module is "too big" — split, don't nest
+
+If a module accumulates more than ~3 services or its routes file pushes past ~200 lines, the right refactor is almost always to **split it into multiple modules**, not to bury its internals in subfolders.
+
+A `posts` module that grew `archivedService`, `featuredService`, `searchService`, and `recommendationService` is four modules in disguise. Splitting them gives you:
+
+- **Cleaner dependency declarations.** Each new module declares `requires: ['postService']` if it needs the core posts service. The relationships are visible in the source, not hidden inside a single bloated module.
+- **Better module names in errors.** Boot validation and runtime errors say "module `posts-search`" instead of "module `posts` (the search service)."
+- **Separate entries in the devtools graph.** [`inspectModules()`](./devtools.md) shows each module as a node with its own routes and dependencies. A split graph is easier to read than one giant node with dozens of services.
+
+The framework's split-vs-nest stance comes through in tooling decisions too: the CLI doesn't have `--in-folder`, `--file <route-file>`, or config-driven module layouts. If you genuinely want to deviate (move services into a `services/` folder by hand, split your routes file via Hono sub-apps), the runtime is fine with it; the CLI just won't know about your custom shape.
+
+See [Architecture](./architecture.md) for splitting heuristics in more depth.
 
 ## Ordering in the modules array
 

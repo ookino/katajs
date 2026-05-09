@@ -140,9 +140,14 @@ The fastest way to learn katajs is the concept docs:
 - [Intro](./docs/concepts/intro.md) — what katajs is and isn't
 - [Modules](./docs/concepts/modules.md) — the unit of organization
 - [Container](./docs/concepts/container.md) — request-scoped DI, lazy resolution
+- [Registry](./docs/concepts/registry.md) — module augmentation, strict-resolve typing
 - [Routes](./docs/concepts/routes.md) — how routes mount, how RPC works
-
-More are landing in v0.2 (transactions, errors, validation, registry, testing, devtools, architecture).
+- [Validation](./docs/concepts/validation.md) — Zod + `validate()` at boundaries
+- [Errors](./docs/concepts/errors.md) — `AppError`, `errorMapper`, response shape
+- [Transactions](./docs/concepts/transactions.md) — `withTransaction`, repository pattern
+- [Testing](./docs/concepts/testing.md) — unit tests + integration tests
+- [Devtools](./docs/concepts/devtools.md) — `inspectModules()`, the graph script
+- [Architecture](./docs/concepts/architecture.md) — when to split modules, when to graduate to monorepo
 
 ---
 

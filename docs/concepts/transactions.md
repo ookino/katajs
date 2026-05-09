@@ -1,0 +1,170 @@
+# Transactions
+
+A transaction in katajs is `c.var.withTransaction(fn)` (or `c.withTransaction(fn)` inside a service factory). It wraps your database adapter's transaction semantics, gives you a sub-container where every repository is bound to the transaction, and rolls back automatically on any throw.
+
+## The shape
+
+```ts
+async create(input: CreatePostInput): Promise<Post> {
+  return c.withTransaction(async (tx) => {
+    const repo = tx.resolve('postRepository');
+    const post = await repo.insert(input);
+
+    const auditService = tx.resolve('auditService');
+    await auditService.log({
+      actorId: input.authorId,
+      action: 'post.created',
+      details: { postId: post.id, title: post.title },
+    });
+
+    return post;
+  });
+}
+```
+
+The callback receives a `tx` — a fresh container view bound to the transaction. Resolve repositories from `tx`, not `c`, when you want them to run inside the transaction. Whatever the callback returns is what `withTransaction` returns. If anything throws, the transaction rolls back and the throw propagates up.
+
+## What's transaction-bound, what isn't
+
+The container's lazy resolver is the trick that makes this clean. When you call `tx.resolve('postRepository')`, the factory runs *now*, against the transaction-bound `tx.db`. The factory pattern looks like this:
+
+```ts
+provides: {
+  postRepository: (c) => makePostRepository(c.db),
+  // ...
+}
+```
+
+`c.db` here is whichever client the container was built with — the request-scoped client outside `withTransaction`, the transaction-bound client inside it. The factory doesn't know or care which it got.
+
+This means:
+
+| Service | What `tx.resolve` does |
+|---|---|
+| Repository (touches `c.db`) | Returns a fresh instance bound to `txDb`. Writes go through the transaction. |
+| Service (composes other services) | Resolves whichever services it pulls from `tx`, which themselves come back tx-bound. |
+| Pure helper (doesn't touch `c.db`) | Same instance as outside the transaction — no behaviour change. |
+
+The repository pattern matters here. If a service grabbed `c.db` directly and held a reference, that reference wouldn't update inside `withTransaction`. By going through `c.resolve('postRepository')` every time you need DB access, you get the right `db` (or `txDb`) without thinking about it.
+
+## Cross-module side effects in one transaction
+
+The example above writes a post AND records an audit log entry. Both happen in the same transaction:
+
+```ts
+return c.withTransaction(async (tx) => {
+  const repo = tx.resolve('postRepository');           // posts module
+  const post = await repo.insert(input);
+
+  const auditService = tx.resolve('auditService');     // audit module
+  await auditService.log({ ... });                     // also tx-bound
+
+  return post;
+});
+```
+
+The `auditService` from the audit module resolves *its own* `auditRepository`, which (because `tx.resolve` returns a fresh instance) is bound to the same transaction. So when `auditService.log()` writes a row, it's part of the post-create transaction. Either both writes commit, or neither does.
+
+This works because every repository in every module follows the same `(c) => makeXxxRepository(c.db)` factory shape. Cross-module transactions are free as long as everyone respects that pattern.
+
+## Nested calls reuse the outer transaction
+
+If a service inside a transaction calls another service that also opens a transaction, the inner call reuses the outer:
+
+```ts
+async deleteOwned({ id, actorId }) {
+  await c.withTransaction(async (tx) => {
+    await tx.resolve('postRepository').deleteById(id);
+
+    const auditService = tx.resolve('auditService');
+    await auditService.log({ ... });
+    // If auditService.log() internally called withTransaction, it would
+    // reuse this outer transaction — same txDb, same isolation.
+  });
+}
+```
+
+The runtime checks `inTransaction` on the container; if it's already `true`, the inner `withTransaction(fn)` just runs `fn(container)` against the existing tx-bound container. No nested DB transaction is opened.
+
+This is intentional — Postgres supports savepoints for true nested transactions, but v0.1 doesn't. Reusing the outer transaction is the simpler, predictable behaviour: services don't have to know whether they're being called inside a transaction or not.
+
+## Rollback on throw
+
+Whatever throws inside the callback aborts the transaction:
+
+```ts
+await c.withTransaction(async (tx) => {
+  await tx.resolve('postRepository').insert(input);
+
+  if (somethingWrong) {
+    throw new ValidationError(...);  // ← rollback. The insert didn't happen.
+  }
+
+  await tx.resolve('auditService').log({ ... });
+});
+```
+
+The throw propagates out of `withTransaction`, gets caught by Hono's error handler, and (if it's an `AppError` subclass) is mapped to an HTTP response by [errorMapper](./errors.md). The user sees a clean error; the database state is unchanged.
+
+This is the main reason to thread cross-module work through `withTransaction`: any failure anywhere in the chain rolls everything back. No partial state, no compensating writes, no "did the audit log get written but the post didn't?" edge cases.
+
+## When NOT to use a transaction
+
+Read-only operations don't need one. Reads aren't part of the transactional invariant — they don't write anything to roll back, and starting a transaction for a read just adds a tiny amount of overhead. A `getById` or `list` reads directly from `c.db`:
+
+```ts
+async list(opts) {
+  const repo = c.resolve('postRepository');
+  return repo.list(opts);  // no withTransaction needed
+}
+```
+
+Use `withTransaction` when you have **two or more writes** that must succeed or fail together. Single-write operations also don't need it — the underlying `INSERT` or `UPDATE` is atomic on its own.
+
+## Adapter contract
+
+Transactions work because `@katajs/drizzle` implements the `runTransaction` half of the `DbAdapter` contract:
+
+```ts
+export type DbAdapter = {
+  create(env: unknown): unknown;
+  runTransaction?<T>(db: any, fn: (txDb: any) => Promise<T>): Promise<T>;
+};
+```
+
+If you swap in a different adapter that doesn't implement `runTransaction`, calling `c.withTransaction(...)` throws a clear error at runtime:
+
+```
+[katajs] withTransaction was called but the configured db adapter does not
+support transactions. Use an adapter with a 'runTransaction' method.
+```
+
+`@katajs/drizzle`'s implementation is a thin wrapper around Drizzle's native `db.transaction(fn)`:
+
+```ts
+async runTransaction(db, fn) {
+  return db.transaction(async (txDb) => fn(txDb));
+}
+```
+
+That's the whole adapter integration. Drizzle handles the begin/commit/rollback; katajs handles the container rebuild.
+
+## Testing transactions
+
+Real-Postgres integration tests exercise transactions correctly because they use a real database. The showcase's `examples/showcase/test/integration.test.ts` covers:
+
+- Successful multi-write transactions (post + audit log).
+- Throw-mid-transaction rollback (verify nothing was written).
+- Cross-module side effects (audit log row created during post.create).
+
+Unit tests with `makeTestContainer` typically mock the database adapter, in which case `withTransaction` falls back to running the callback against the same fake container (no real transaction). That's fine for testing service logic; integration tests cover the transaction semantics.
+
+See [Testing](./testing.md) for the full pattern.
+
+## Summary
+
+- `c.withTransaction(async (tx) => { ... })` runs the callback inside a transaction.
+- Resolve repositories from `tx` to bind them to the transaction.
+- Cross-module writes are atomic as long as every module follows the repository pattern.
+- Nested calls reuse the outer transaction (no savepoints in v0.1).
+- Throws roll back; success commits. The pattern carries the invariant for you.

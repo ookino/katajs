@@ -95,7 +95,14 @@ export { makeTestContainer } from '@katajs/core/testing';
 - [Concepts: intro](https://github.com/ookino/katajs/blob/main/docs/concepts/intro.md)
 - [Concepts: modules](https://github.com/ookino/katajs/blob/main/docs/concepts/modules.md)
 - [Concepts: container](https://github.com/ookino/katajs/blob/main/docs/concepts/container.md)
+- [Concepts: registry](https://github.com/ookino/katajs/blob/main/docs/concepts/registry.md)
 - [Concepts: routes](https://github.com/ookino/katajs/blob/main/docs/concepts/routes.md)
+- [Concepts: validation](https://github.com/ookino/katajs/blob/main/docs/concepts/validation.md)
+- [Concepts: errors](https://github.com/ookino/katajs/blob/main/docs/concepts/errors.md)
+- [Concepts: transactions](https://github.com/ookino/katajs/blob/main/docs/concepts/transactions.md)
+- [Concepts: testing](https://github.com/ookino/katajs/blob/main/docs/concepts/testing.md)
+- [Concepts: devtools](https://github.com/ookino/katajs/blob/main/docs/concepts/devtools.md)
+- [Concepts: architecture](https://github.com/ookino/katajs/blob/main/docs/concepts/architecture.md)
 - [Showcase example](https://github.com/ookino/katajs/tree/main/examples/showcase)
 
 ## License

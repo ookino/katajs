@@ -92,17 +92,17 @@ The static `graph.html` (Shape A) ships now. Shape B is the Nest-Devtools-style 
 
 `docs/concepts/` should answer the questions a new user has on day one:
 
-- [ ] `docs/concepts/intro.md` — what katajs is, what it isn't, who it's for, why it's opinionated.
-- [ ] `docs/concepts/modules.md` — the unit of organization; `provides`/`requires`; routed vs services-only. **Must include**: where modules live (`src/modules/` is convention, runtime is filesystem-agnostic); flat internal layout (services + repository + schema + errors + routes all at module root, no `services/` subfolder); when to split into multiple modules instead of nesting (rule of thumb: ~3 services).
-- [ ] `docs/concepts/container.md` — request-scoped DI, lazy resolution, no global singletons.
-- [ ] `docs/concepts/registry.md` — the augmentation pattern, why it exists, the strict-resolve story.
-- [ ] `docs/concepts/transactions.md` — `withTransaction`, repository pattern, tx-bound services.
-- [ ] `docs/concepts/validation.md` — Zod + `validate()` at boundaries; how it preserves Hono RPC types.
-- [ ] `docs/concepts/errors.md` — `AppError` subclasses, `errorMapper`, mapping domain errors to HTTP.
-- [ ] `docs/concepts/routes.md` — the `routes` callback, mounting modules, free-floating routes (health, webhooks). **Must include**: one `<module>.routes.ts` per module by convention; if you need to split (public/admin, REST/webhooks), prefer separate modules at sub-prefixes; the Hono sub-app escape hatch (`new Hono().route('/x', subApp)`) for users who genuinely want multiple route files inside one module — runtime supports it, CLI doesn't help with it.
-- [ ] `docs/concepts/testing.md` — `makeTestContainer` for unit tests, real-Postgres for integration tests.
-- [ ] `docs/concepts/devtools.md` — `pnpm graph` (Shape A), Shape B preview.
-- [ ] `docs/concepts/architecture.md` — when to single-API vs `--monorepo`; **also**: when a module is "too big" (rule: services > 3, or routes file > ~200 lines), what splitting looks like (sibling modules + `requires:` declarations), how the dependency graph in `inspectModules()` rewards splitting.
+- [x] `docs/concepts/intro.md` — what katajs is, what it isn't, who it's for, why it's opinionated.
+- [x] `docs/concepts/modules.md` — the unit of organization; `provides`/`requires`; routed vs services-only; where modules live; flat internal layout; when to split.
+- [x] `docs/concepts/container.md` — request-scoped DI, lazy resolution, no global singletons.
+- [x] `docs/concepts/registry.md` — the augmentation pattern, why it exists, the strict-resolve story.
+- [x] `docs/concepts/transactions.md` — `withTransaction`, repository pattern, tx-bound services.
+- [x] `docs/concepts/validation.md` — Zod + `validate()` at boundaries; how it preserves Hono RPC types.
+- [x] `docs/concepts/errors.md` — `AppError` subclasses, `errorMapper`, mapping domain errors to HTTP.
+- [x] `docs/concepts/routes.md` — the `routes` callback, mounting modules, free-floating routes; single-routes-file convention + Hono sub-app escape hatch.
+- [x] `docs/concepts/testing.md` — `makeTestContainer` for unit tests, real-Postgres for integration tests.
+- [x] `docs/concepts/devtools.md` — `pnpm graph` (Shape A), Shape B preview.
+- [x] `docs/concepts/architecture.md` — when to single-API vs `--monorepo`; when modules are "too big"; sibling-module split pattern; how the graph rewards splitting.
 - [ ] `docs/recipes/` — focused how-tos: RPC client, error logging to Sentry, custom middleware, etc.
 
 ### 6. Documentation site

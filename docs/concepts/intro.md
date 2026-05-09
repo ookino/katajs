@@ -44,9 +44,14 @@ The runtime is ~600 lines of TypeScript. The Drizzle adapter is ~80 lines. The C
 
 - **[Modules](./modules.md)** — the unit of organization. What `provides`/`requires` mean and how routed/services-only modules differ.
 - **[Container](./container.md)** — request-scoped DI. How `c.var.resolve(key)` works, what's lazy, what's strict.
+- **[Registry](./registry.md)** — TypeScript module augmentation. How each module's slice composes into the global Registry that powers strict autocomplete.
 - **[Routes](./routes.md)** — how routes mount, where free-floating routes live, how Hono RPC types flow through `createApp`.
-
-More concept pages (transactions, errors, validation, registry, testing, devtools, architecture) land in v0.2.
+- **[Validation](./validation.md)** — `validate({ body, query, param })`, how Zod errors become structured 400 responses.
+- **[Errors](./errors.md)** — `AppError` subclasses, `errorMapper`, the response shape.
+- **[Transactions](./transactions.md)** — `withTransaction`, repository pattern, cross-module atomicity.
+- **[Testing](./testing.md)** — `makeTestContainer` for unit tests, real Postgres for integration tests.
+- **[Devtools](./devtools.md)** — the static module graph (Shape A) and the interactive devtools roadmap (Shape B).
+- **[Architecture](./architecture.md)** — when to split modules, when to graduate to `--monorepo`.
 
 ## Quickstart
 
