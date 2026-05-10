@@ -43,8 +43,14 @@ function payloadOf(insp: LoadResult['inspection']): {
   modules: LoadResult['inspection']['modules'];
   edges: LoadResult['inspection']['edges'];
   routes: LoadResult['inspection']['routes'];
+  producers: LoadResult['inspection']['producers'];
 } {
-  return { modules: insp.modules, edges: insp.edges, routes: insp.routes };
+  return {
+    modules: insp.modules,
+    edges: insp.edges,
+    routes: insp.routes,
+    producers: insp.producers,
+  };
 }
 
 /** Pretty-printed for human inspection at /api/graph.json. */

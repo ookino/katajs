@@ -11,6 +11,27 @@ export type GraphModule = {
   requires: string[];
   prefix?: string;
   hasRoutes: boolean;
+  /** Present when the module declares `consumer:` — points at a queue binding. */
+  consumer?: GraphConsumer;
+};
+
+/** Queue consumer attached to a module. */
+export type GraphConsumer = {
+  /** wrangler binding name for the queue this module consumes. */
+  queue: string;
+  /** Optional dead-letter binding name. */
+  dlq?: string;
+};
+
+/**
+ * Producer manifest entry from `createApp({ queues })`. Producers are app-level
+ * (not module-level) so they're inspected separately from modules.
+ */
+export type GraphProducer = {
+  /** The key under `queues:` (also the wrapper name on `c.var.queues.<name>`). */
+  name: string;
+  /** wrangler binding name (e.g. 'ORDER_QUEUE'). */
+  binding: string;
 };
 
 /** Directed dependency edge: `from` requires service `via`, which `to` provides. */
@@ -31,12 +52,23 @@ export type Inspection = {
   modules: GraphModule[];
   edges: GraphEdge[];
   routes: GraphRoute[];
+  /** App-level producer manifests, optional. Empty array when no producers passed. */
+  producers: GraphProducer[];
   /** A `graph TD` Mermaid source string suitable for embedding in markdown or HTML. */
   mermaid(): string;
   /** Pretty-printed JSON for piping to other tooling. */
   json(): string;
   /** Self-contained HTML page that renders the graph + tables in a browser. */
   html(opts?: HtmlOptions): string;
+};
+
+export type InspectOptions = {
+  /**
+   * App-level producer manifests, normally the contents of `createApp({ queues })`.
+   * Each entry maps a producer name to its wrangler binding. Pass-through to the
+   * Inspection's `producers` array so devtools can render producer/consumer pairs.
+   */
+  producers?: Record<string, { binding: string }>;
 };
 
 export type HtmlOptions = {
@@ -55,7 +87,10 @@ export type HtmlOptions = {
  * same `Inspection` shape from a `__katajs/graph` debug endpoint and render
  * with an interactive Cytoscape canvas instead of a Mermaid snapshot.
  */
-export function inspectModules(modules: readonly Module[]): Inspection {
+export function inspectModules(
+  modules: readonly Module[],
+  options: InspectOptions = {},
+): Inspection {
   const provideOwners = new Map<string, string>();
   for (const m of modules) {
     for (const key of Object.keys(m.provides)) {
@@ -63,13 +98,25 @@ export function inspectModules(modules: readonly Module[]): Inspection {
     }
   }
 
-  const inspectedModules: GraphModule[] = modules.map((m) => ({
-    name: m.name,
-    provides: Object.keys(m.provides).sort(),
-    requires: [...m.requires].sort(),
-    prefix: isRoutedModule(m) ? m.prefix : undefined,
-    hasRoutes: isRoutedModule(m),
-  }));
+  const inspectedModules: GraphModule[] = modules.map((m) => {
+    const consumer = m.consumer
+      ? ({ queue: m.consumer.queue, dlq: m.consumer.dlq } satisfies GraphConsumer)
+      : undefined;
+    return {
+      name: m.name,
+      provides: Object.keys(m.provides).sort(),
+      requires: [...m.requires].sort(),
+      prefix: isRoutedModule(m) ? m.prefix : undefined,
+      hasRoutes: isRoutedModule(m),
+      ...(consumer ? { consumer } : {}),
+    };
+  });
+
+  const producers: GraphProducer[] = options.producers
+    ? Object.entries(options.producers)
+        .map(([name, p]) => ({ name, binding: p.binding }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    : [];
 
   const edges: GraphEdge[] = [];
   for (const m of modules) {
@@ -110,8 +157,14 @@ export function inspectModules(modules: readonly Module[]): Inspection {
     modules: inspectedModules,
     edges,
     routes,
+    producers,
     mermaid: () => buildMermaid(inspectedModules, edges),
-    json: () => JSON.stringify({ modules: inspectedModules, edges, routes }, null, 2),
+    json: () =>
+      JSON.stringify(
+        { modules: inspectedModules, edges, routes, producers },
+        null,
+        2,
+      ),
     html: (opts) => buildHtml(inspectedModules, edges, routes, opts),
   };
 }

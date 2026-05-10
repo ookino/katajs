@@ -4,16 +4,27 @@ import type { ConnectionState, GraphData } from './lib/types';
 import ModuleGraph from './components/ModuleGraph';
 import ModuleSidebar from './components/ModuleSidebar';
 import ModuleDrawer from './components/ModuleDrawer';
+import ProducerDrawer from './components/ProducerDrawer';
 import RoutesTable from './components/RoutesTable';
 import StatusPill from './components/StatusPill';
 import CommandPalette from './components/CommandPalette';
 
 type View = 'graph' | 'routes';
 
+type Selection =
+  | { kind: 'none' }
+  | { kind: 'module'; name: string }
+  | { kind: 'producer'; name: string };
+
 export default function App() {
   const state = useGraph();
-  const [selectedModule, setSelectedModule] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection>({ kind: 'none' });
   const [view, setView] = useState<View>('graph');
+
+  const selectModule = (name: string | null) =>
+    setSelection(name ? { kind: 'module', name } : { kind: 'none' });
+  const selectProducer = (name: string | null) =>
+    setSelection(name ? { kind: 'producer', name } : { kind: 'none' });
 
   return (
     <div className="h-screen flex flex-col">
@@ -31,12 +42,14 @@ export default function App() {
           <LiveView
             data={state.data}
             view={view}
-            selectedModule={selectedModule}
-            onSelectModule={setSelectedModule}
+            selection={selection}
+            onSelectModule={selectModule}
+            onSelectProducer={selectProducer}
           />
           <CommandPalette
             data={state.data}
-            onSelectModule={setSelectedModule}
+            onSelectModule={(n) => selectModule(n)}
+            onSelectProducer={(n) => selectProducer(n)}
             onSwitchView={setView}
           />
         </>
@@ -52,20 +65,26 @@ export default function App() {
 function LiveView({
   data,
   view,
-  selectedModule,
+  selection,
   onSelectModule,
+  onSelectProducer,
 }: {
   data: GraphData;
   view: View;
-  selectedModule: string | null;
+  selection: Selection;
   onSelectModule: (name: string | null) => void;
+  onSelectProducer: (name: string | null) => void;
 }) {
+  const selectedModule = selection.kind === 'module' ? selection.name : null;
+  const selectedProducer = selection.kind === 'producer' ? selection.name : null;
   return (
     <div className="flex-1 flex min-h-0">
       <ModuleSidebar
         data={data}
         selectedModule={selectedModule}
+        selectedProducer={selectedProducer}
         onSelectModule={onSelectModule}
+        onSelectProducer={onSelectProducer}
       />
       <div className="flex-1 min-w-0">
         {view === 'graph' ? (
@@ -78,11 +97,19 @@ function LiveView({
           <RoutesTable data={data} onSelectModule={(name) => onSelectModule(name)} />
         )}
       </div>
-      {selectedModule ? (
+      {selection.kind === 'module' ? (
         <ModuleDrawer
           data={data}
-          moduleName={selectedModule}
+          moduleName={selection.name}
           onClose={() => onSelectModule(null)}
+          onSelectModule={(name) => onSelectModule(name)}
+        />
+      ) : null}
+      {selection.kind === 'producer' ? (
+        <ProducerDrawer
+          data={data}
+          producerName={selection.name}
+          onClose={() => onSelectProducer(null)}
           onSelectModule={(name) => onSelectModule(name)}
         />
       ) : null}

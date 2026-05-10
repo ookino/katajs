@@ -101,6 +101,42 @@ export default function ModuleDrawer({ data, moduleName, onClose, onSelectModule
         )}
       </Section>
 
+      {mod.consumer ? (
+        <Section title="Consumes">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2 text-[12px]">
+              <span className="text-muted text-[11px]">queue</span>
+              <code className="font-mono text-put bg-put/10 rounded px-1.5 py-0.5">
+                {mod.consumer.queue}
+              </code>
+            </div>
+            {mod.consumer.dlq ? (
+              <div className="flex items-center justify-between gap-2 text-[12px]">
+                <span className="text-muted text-[11px]">dlq</span>
+                <code className="font-mono text-delete bg-delete/10 rounded px-1.5 py-0.5">
+                  {mod.consumer.dlq}
+                </code>
+              </div>
+            ) : null}
+            {producersForQueue(data, mod.consumer.queue).length > 0 ? (
+              <div className="pt-1.5 border-t border-border">
+                <div className="text-[10px] uppercase tracking-wider text-muted mb-1">
+                  fed by producer
+                </div>
+                <ul className="space-y-1">
+                  {producersForQueue(data, mod.consumer.queue).map((p) => (
+                    <li key={p.name} className="flex items-center justify-between text-[11px]">
+                      <span className="text-post">{p.name}</span>
+                      <code className="font-mono text-[10px] text-muted">{p.binding}</code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </Section>
+      ) : null}
+
       <Section title={`Routes (${ownRoutes.length})`} empty="No routes mounted.">
         {ownRoutes.length > 0 && (
           <ul className="space-y-1">
@@ -117,19 +153,23 @@ export default function ModuleDrawer({ data, moduleName, onClose, onSelectModule
   );
 }
 
+function producersForQueue(data: GraphData, queueBinding: string): GraphData['producers'] {
+  return data.producers.filter((p) => p.binding === queueBinding);
+}
+
 function Section({
   title,
   empty,
   children,
 }: {
   title: string;
-  empty: string;
+  empty?: string;
   children?: React.ReactNode;
 }) {
   return (
     <section className="px-4 py-3 border-b border-border last:border-b-0">
       <div className="text-[10px] uppercase tracking-wider text-muted mb-2">{title}</div>
-      {children ?? <div className="text-[11px] italic text-muted">{empty}</div>}
+      {children ?? (empty ? <div className="text-[11px] italic text-muted">{empty}</div> : null)}
     </section>
   );
 }

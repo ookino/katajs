@@ -112,4 +112,53 @@ describe('inspectModules', () => {
     expect(html).toContain('mermaid.esm.min.mjs');
     expect(html).toContain('<code>/posts</code>');
   });
+
+  it('surfaces consumer info on modules that declare a consumer', () => {
+    const noopSchema = { parse: (v: unknown) => v as never };
+    const auditConsumer = defineModule({
+      name: 'audit',
+      provides: { auditLogger: () => ({ log: () => undefined }) },
+      requires: ['eventRecorder'] as const,
+      consumer: {
+        queue: 'AUDIT_QUEUE',
+        dlq: 'AUDIT_DLQ',
+        schema: noopSchema,
+        handle: async () => {},
+      },
+    });
+    const insp = inspectModules([events, auditConsumer]);
+    const auditEntry = insp.modules.find((m) => m.name === 'audit');
+    expect(auditEntry?.consumer).toEqual({
+      queue: 'AUDIT_QUEUE',
+      dlq: 'AUDIT_DLQ',
+    });
+    // events module has no consumer — should not have the field.
+    expect(insp.modules.find((m) => m.name === 'events')?.consumer).toBeUndefined();
+  });
+
+  it('returns an empty producers array when none passed', () => {
+    expect(inspectModules([events]).producers).toEqual([]);
+  });
+
+  it('includes producers from options, sorted by name', () => {
+    const insp = inspectModules([events], {
+      producers: {
+        notifications: { binding: 'NOTIF_QUEUE' },
+        auditEvents: { binding: 'AUDIT_QUEUE' },
+      },
+    });
+    expect(insp.producers).toEqual([
+      { name: 'auditEvents', binding: 'AUDIT_QUEUE' },
+      { name: 'notifications', binding: 'NOTIF_QUEUE' },
+    ]);
+  });
+
+  it('producers appear in json() output', () => {
+    const data = JSON.parse(
+      inspectModules([events], {
+        producers: { auditEvents: { binding: 'AUDIT_QUEUE' } },
+      }).json(),
+    );
+    expect(data.producers).toEqual([{ name: 'auditEvents', binding: 'AUDIT_QUEUE' }]);
+  });
 });

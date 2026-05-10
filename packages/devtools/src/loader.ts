@@ -63,18 +63,25 @@ export function resolveModulesFile(options: LoaderOptions = {}): string {
  * Loads the user's modules tuple via tsx's ESM register API and returns the
  * `Inspection` object from `inspectModules()`. Cache-busts on every call by
  * appending a timestamp query — supports hot-reload after file changes.
+ *
+ * If the file also exports `producers` (a `Record<string, { binding: string }>`,
+ * matching the shape passed to `createApp({ queues })`), they're forwarded to
+ * the inspection so devtools can render producer/consumer pairs.
  */
 export async function loadInspection(options: LoaderOptions = {}): Promise<LoadResult> {
   ensureTsx();
   const resolvedAbsolutePath = resolveModulesFile(options);
   const url = `${pathToFileURL(resolvedAbsolutePath).href}?t=${Date.now()}`;
-  const mod = (await import(url)) as { modules?: readonly Module[] };
+  const mod = (await import(url)) as {
+    modules?: readonly Module[];
+    producers?: Record<string, { binding: string }>;
+  };
   if (!Array.isArray(mod.modules)) {
     throw new Error(
       `katajs-devtools: ${resolvedAbsolutePath} does not export a \`modules\` array.\n` +
         `Expected:\n  export const modules = [postsModule, /* ... */];`,
     );
   }
-  const inspection = inspectModules(mod.modules);
+  const inspection = inspectModules(mod.modules, { producers: mod.producers });
   return { inspection, resolvedPath: url, resolvedAbsolutePath };
 }

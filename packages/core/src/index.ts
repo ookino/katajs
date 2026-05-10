@@ -27,10 +27,13 @@ export { validate } from './validate';
 
 export { inspectModules } from './inspect';
 export type {
+  GraphConsumer,
   GraphEdge,
   GraphModule,
+  GraphProducer,
   GraphRoute,
   HtmlOptions,
+  InspectOptions,
   Inspection,
 } from './inspect';
 

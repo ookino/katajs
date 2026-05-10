@@ -12,7 +12,7 @@ export default function ModuleNode({ data, selected }: Props) {
           ? 'border-accent ring-2 ring-accent/40'
           : 'border-border hover:border-accent/60',
       ].join(' ')}
-      style={{ width: 220, height: 78 }}
+      style={{ width: 220, height: 92 }}
     >
       <Handle type="target" position={Position.Left} className="!bg-accent !border-0 !w-2 !h-2" />
       <div className="flex items-center justify-between gap-2">
@@ -28,6 +28,15 @@ export default function ModuleNode({ data, selected }: Props) {
         <span className="text-accent">{data.requires.length} requires</span>
         {data.hasRoutes ? <span>{data.routeCount} routes</span> : null}
       </div>
+      {data.consumer ? (
+        <div className="mt-1.5 flex items-center gap-1 text-[10px]">
+          <span className="text-put">⇆</span>
+          <span className="text-put">consumes</span>
+          <code className="font-mono text-put bg-put/10 rounded px-1 py-0.5 truncate">
+            {data.consumer.queue}
+          </code>
+        </div>
+      ) : null}
       <Handle type="source" position={Position.Right} className="!bg-accent !border-0 !w-2 !h-2" />
     </div>
   );

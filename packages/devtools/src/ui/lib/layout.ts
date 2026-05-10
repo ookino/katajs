@@ -1,9 +1,9 @@
 import dagre from '@dagrejs/dagre';
 import type { Edge, Node } from '@xyflow/react';
-import type { GraphData } from './types';
+import type { GraphConsumer, GraphData } from './types';
 
 const NODE_WIDTH = 220;
-const NODE_HEIGHT = 78;
+const NODE_HEIGHT = 92;
 
 export type ModuleNodeData = {
   name: string;
@@ -12,6 +12,7 @@ export type ModuleNodeData = {
   prefix?: string;
   hasRoutes: boolean;
   routeCount: number;
+  consumer?: GraphConsumer;
 };
 
 export type DependencyEdgeData = {
@@ -61,6 +62,7 @@ export function layoutGraph(graph: GraphData): {
         prefix: m.prefix,
         hasRoutes: m.hasRoutes,
         routeCount: routeCountByModule.get(m.name) ?? 0,
+        consumer: m.consumer,
       },
       width: NODE_WIDTH,
       height: NODE_HEIGHT,

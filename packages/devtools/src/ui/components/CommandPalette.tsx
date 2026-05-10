@@ -6,10 +6,16 @@ import { MethodChip } from './ModuleDrawer';
 type Props = {
   data: GraphData;
   onSelectModule: (name: string) => void;
+  onSelectProducer: (name: string) => void;
   onSwitchView: (view: 'graph' | 'routes') => void;
 };
 
-export default function CommandPalette({ data, onSelectModule, onSwitchView }: Props) {
+export default function CommandPalette({
+  data,
+  onSelectModule,
+  onSelectProducer,
+  onSwitchView,
+}: Props) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -40,6 +46,10 @@ export default function CommandPalette({ data, onSelectModule, onSwitchView }: P
   };
   const pickView = (v: 'graph' | 'routes') => {
     onSwitchView(v);
+    close();
+  };
+  const pickProducer = (name: string) => {
+    onSelectProducer(name);
     close();
   };
 
@@ -104,6 +114,28 @@ export default function CommandPalette({ data, onSelectModule, onSwitchView }: P
                 </Command.Item>
               ))}
             </Command.Group>
+
+            {data.producers.length > 0 ? (
+              <Command.Group
+                heading={`Producers (${data.producers.length})`}
+                className="text-[10px] uppercase tracking-wider text-muted px-2 pt-3 pb-1"
+              >
+                {data.producers.map((p) => (
+                  <Command.Item
+                    key={`producer:${p.name}`}
+                    value={`producer ${p.name} ${p.binding}`}
+                    onSelect={() => pickProducer(p.name)}
+                    className="flex items-center justify-between gap-2 px-2 py-1.5 rounded text-[13px] cursor-pointer aria-selected:bg-accent/15 aria-selected:text-white"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-post text-[10px]">→</span>
+                      <span className="truncate">{p.name}</span>
+                    </div>
+                    <code className="font-mono text-[10px] text-muted">{p.binding}</code>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            ) : null}
 
             <Command.Group
               heading={`Routes (${data.routes.length})`}
