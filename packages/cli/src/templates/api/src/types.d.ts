@@ -22,4 +22,10 @@ declare module '@katajs/core' {
     extends PostsRegistry
     // katajs:registry
   {}
+
+  // Typed producer queues. Each entry maps a queue name to its body type so
+  // c.var.queues.<name>.send(body) is fully typed.
+  interface QueuesRegistry {
+    // katajs:queues-registry
+  }
 }

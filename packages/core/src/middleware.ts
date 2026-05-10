@@ -1,8 +1,11 @@
 import type { MiddlewareHandler } from 'hono';
 import { buildContainer } from './container';
+import { buildTypedQueues } from './queues-producer';
 import type {
   AppDb,
   ProvidesMap,
+  QueueDeclaration,
+  QueuesRegistry,
   RequestContainer,
   ServiceFactory,
 } from './types';
@@ -10,16 +13,17 @@ import type {
 /**
  * Hono Variables shape contributed by katajs's container middleware.
  *
- * `resolve` and `withTransaction` are convenience handles mounted directly on
- * `c.var` so route handlers can write `c.var.resolve('postService')` instead
- * of `c.var.container.resolve('postService')`. Same types, same behaviour —
- * just one access shallower at the call site.
+ * `resolve`, `withTransaction`, and `queues` are convenience handles mounted
+ * directly on `c.var` so route handlers can write
+ * `c.var.resolve('postService')` and `c.var.queues.orders.send(...)` without
+ * digging into `c.var.container`.
  */
 export type RequestVariables = {
   container: RequestContainer;
   requestId: string;
   resolve: RequestContainer['resolve'];
   withTransaction: RequestContainer['withTransaction'];
+  queues: QueuesRegistry;
 };
 
 /**
@@ -44,6 +48,8 @@ export type ContainerMiddlewareConfig = {
   db: DbAdapter;
   /** Override `crypto.randomUUID` for deterministic tests. */
   generateRequestId?: () => string;
+  /** Producer manifest. Each entry becomes a typed queue on `c.var.queues`. */
+  queues?: Record<string, QueueDeclaration>;
 };
 
 /**
@@ -74,6 +80,14 @@ export function containerMiddleware(config: ContainerMiddlewareConfig): Middlewa
     c.set('requestId', requestId);
     c.set('resolve', container.resolve);
     c.set('withTransaction', container.withTransaction);
+    if (config.queues && Object.keys(config.queues).length > 0) {
+      c.set(
+        'queues',
+        buildTypedQueues(config.queues, c.env) as unknown as QueuesRegistry,
+      );
+    } else {
+      c.set('queues', {} as QueuesRegistry);
+    }
     c.header('X-Request-Id', requestId);
 
     await next();

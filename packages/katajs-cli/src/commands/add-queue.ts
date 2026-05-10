@@ -17,6 +17,8 @@ export type AddQueueOptions = {
   dlq?: string;
   /** Use `handleBatch` instead of `handle`. */
   batch?: boolean;
+  /** Skip producer manifest entry in createApp (for consumer-only Workers like apps/worker). */
+  noProducer?: boolean;
   cwd?: string;
 };
 
@@ -96,11 +98,106 @@ export async function addQueue(opts: AddQueueOptions): Promise<void> {
     }
   }
 
-  // 3. Report success + emit wrangler.jsonc + Bindings type snippets for
-  //    manual paste (JSONC mutation is fragile and the Bindings type lives
-  //    in user-customizable territory).
+  // 3. Producer manifest: insert into createApp's `queues:` block (app.ts) and
+  //    types.d.ts's `QueuesRegistry` augmentation. Skipped when --no-producer
+  //    (consumer-only mode for apps/worker / strict separation).
+  if (!opts.noProducer) {
+    const appPath = join(project.srcDir, 'app.ts');
+    if (existsSync(appPath)) {
+      let appSrc = readFileSync(appPath, 'utf8');
+      const importLine = `import { ${queueCasings.pascal}EventSchema } from './modules/${moduleCasings.kebab}/${queueCasings.kebab}.consumer';`;
+      const queuesEntry = [
+        `${queueCasings.camel}: {`,
+        `  binding: '${bindingName}',`,
+        `  schema: ${queueCasings.pascal}EventSchema,`,
+        `},`,
+      ];
+      let appFallback = '';
+
+      // Add the schema import (reuse the existing module-imports anchor).
+      if (!appSrc.includes(importLine)) {
+        try {
+          appSrc = insertBeforeAnchor(appSrc, 'module-imports', importLine);
+        } catch (err) {
+          if (err instanceof AnchorMissingError) {
+            appFallback += importLine + '\n';
+          } else throw err;
+        }
+      }
+
+      // Add the queues entry.
+      try {
+        appSrc = insertBeforeAnchor(appSrc, 'queues', queuesEntry);
+      } catch (err) {
+        if (err instanceof AnchorMissingError) {
+          appFallback +=
+            `// Add to createApp's queues:\n${queueCasings.camel}: { binding: '${bindingName}', schema: ${queueCasings.pascal}EventSchema },\n`;
+        } else throw err;
+      }
+
+      writeFileSync(appPath, appSrc);
+
+      if (appFallback) {
+        fallbacks.push(
+          yellow(`Some anchors missing in ${appPath}.\nPaste manually:\n`) + appFallback,
+        );
+      }
+    }
+
+    // types.d.ts QueuesRegistry augmentation
+    const typesPath = join(project.srcDir, 'types.d.ts');
+    if (existsSync(typesPath)) {
+      let typesSrc = readFileSync(typesPath, 'utf8');
+      let typesFallback = '';
+
+      const typeImportLine = `import type { ${queueCasings.pascal}Event } from './modules/${moduleCasings.kebab}/${queueCasings.kebab}.consumer';`;
+      const typedQueueImport = `import type { TypedQueue } from '@katajs/core';`;
+      const registryEntry = `${queueCasings.camel}: TypedQueue<${queueCasings.pascal}Event>;`;
+
+      // Add TypedQueue import once.
+      if (!typesSrc.includes(typedQueueImport)) {
+        // Insert at top — there's no anchor for type imports; use a regex.
+        typesSrc = typesSrc.replace(
+          /^import type \{ DrizzleClient \} from '@katajs\/drizzle';/m,
+          `${typedQueueImport}\n$&`,
+        );
+      }
+
+      // Add the event type import (reuse registry-imports anchor — close enough).
+      if (!typesSrc.includes(typeImportLine)) {
+        try {
+          typesSrc = insertBeforeAnchor(typesSrc, 'registry-imports', typeImportLine);
+        } catch (err) {
+          if (err instanceof AnchorMissingError) {
+            typesFallback += typeImportLine + '\n';
+          } else throw err;
+        }
+      }
+
+      // Add to QueuesRegistry.
+      try {
+        typesSrc = insertBeforeAnchor(typesSrc, 'queues-registry', registryEntry);
+      } catch (err) {
+        if (err instanceof AnchorMissingError) {
+          typesFallback +=
+            `// Add to QueuesRegistry interface:\n${registryEntry}\n`;
+        } else throw err;
+      }
+
+      writeFileSync(typesPath, typesSrc);
+
+      if (typesFallback) {
+        fallbacks.push(
+          yellow(`Some anchors missing in ${typesPath}.\nPaste manually:\n`) + typesFallback,
+        );
+      }
+    }
+  }
+
+  // 4. Report success.
   p.outro(
-    `${green('✓')} Added queue consumer ${cyan(queueCasings.camel + 'Consumer')} to module ${cyan(moduleCasings.kebab)}`,
+    `${green('✓')} Added queue consumer ${cyan(queueCasings.camel + 'Consumer')} to module ${cyan(moduleCasings.kebab)}` +
+      (opts.noProducer ? '' : `\n  Wired ${cyan(`c.var.queues.${queueCasings.camel}.send(...)`)} producer`),
   );
   // eslint-disable-next-line no-console
   console.log(dim('  File:'));
@@ -119,19 +216,23 @@ export async function addQueue(opts: AddQueueOptions): Promise<void> {
   }
 
   // eslint-disable-next-line no-console
-  console.log('\n' + cyan('  Next: wire the wrangler bindings + Bindings type'));
+  console.log('\n' + cyan('  Next: add the wrangler bindings'));
   // eslint-disable-next-line no-console
   console.log(
     dim('  In wrangler.jsonc, add (or extend) the queues section:\n'),
   );
   // eslint-disable-next-line no-console
   console.log(buildWranglerSnippet(queueCasings.kebab, bindingName, dlqBinding));
-  // eslint-disable-next-line no-console
-  console.log(
-    '\n' + dim('  In src/app.ts (or wherever Bindings is declared), add:\n'),
-  );
-  // eslint-disable-next-line no-console
-  console.log(buildBindingsSnippet(queueCasings, bindingName, dlqBinding));
+
+  if (!opts.noProducer) {
+    // eslint-disable-next-line no-console
+    console.log(
+      '\n' +
+        dim(
+          `  Producer wired automatically — call ${cyan(`c.var.queues.${queueCasings.camel}.send(...)`)} from any service or route.`,
+        ),
+    );
+  }
 }
 
 function deriveBindingName(kebab: string): string {
@@ -225,18 +326,3 @@ ${consumerEntry}
   }`;
 }
 
-function buildBindingsSnippet(
-  queue: Casings,
-  binding: string,
-  dlq?: string,
-): string {
-  const dlqLine = dlq
-    ? `\n    ${dlq}: Queue;  // raw — DLQ envelope, not ${queue.pascal}Event`
-    : '';
-  return `  import type { ${queue.pascal}Event } from './modules/<module>/${queue.kebab}.consumer';
-
-  export type Bindings = {
-    HYPERDRIVE: Hyperdrive;
-    ${binding}: Queue<${queue.pascal}Event>;${dlqLine}
-  };`;
-}

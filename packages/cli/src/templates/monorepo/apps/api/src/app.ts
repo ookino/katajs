@@ -21,6 +21,11 @@ const { app, queue } = createApp({
     postsModule,
     // katajs:modules
   ],
+  // Producer manifest. Each entry surfaces a typed wrapper at
+  // c.var.queues.<name>.send(body), validated against the schema.
+  queues: {
+    // katajs:queues
+  },
   // Define your HTTP surface here. Add `.get()` / `.post()` for ad-hoc routes
   // (health checks, webhooks) and `.route(prefix, module.routes)` per module.
   routes: (base) =>

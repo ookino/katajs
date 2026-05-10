@@ -199,3 +199,65 @@ export type ConsumerSpec<TBody = unknown> = {
   /** Batch handler. User controls ack/retry per message. */
   readonly handleBatch?: ConsumerBatchHandler<TBody>;
 };
+
+/* ---------------------------------------------------------------------------
+ * Producer types — typed wrapper around `c.env[binding].send(...)`
+ * --------------------------------------------------------------------------- */
+
+/**
+ * Options accepted by `TypedQueue.send` / `sendBatch`. Mirrors the Cloudflare
+ * `Queue.send` options surface, narrowed to fields the framework cares about.
+ */
+export type SendOptions = {
+  /** Optional content type. Default: 'json'. */
+  contentType?: 'text' | 'bytes' | 'json' | 'v8';
+  /** Delay delivery by N seconds. */
+  delaySeconds?: number;
+};
+
+export type SendBatchOptions = {
+  delaySeconds?: number;
+};
+
+/**
+ * Typed producer wrapper for a single queue binding. Validates the body
+ * against the registered schema before delegating to `env[binding].send(...)`.
+ */
+export interface TypedQueue<TBody> {
+  /**
+   * Send a single message. Validates body against the schema synchronously;
+   * throws `ValidationError` on failure. On success, delegates to the
+   * underlying Cloudflare binding.
+   */
+  send(body: TBody, options?: SendOptions): Promise<void>;
+
+  /**
+   * Send a batch. Each body is validated; first validation failure aborts
+   * with `ValidationError` (no messages sent).
+   */
+  sendBatch(bodies: readonly TBody[], options?: SendBatchOptions): Promise<void>;
+}
+
+/**
+ * Globally-augmentable producer registry. Mirrors the `Registry` pattern.
+ * Each entry maps a queue name to a `TypedQueue<TBody>` view.
+ *
+ *   declare module '@katajs/core' {
+ *     interface QueuesRegistry {
+ *       orders: TypedQueue<OrderEvent>;
+ *       notifications: TypedQueue<NotificationEvent>;
+ *     }
+ *   }
+ *
+ * Empty by default. The augmentation flows the `body` shape into
+ * `c.var.queues.<name>.send(body)` at the call site.
+ */
+export interface QueuesRegistry {}
+
+/** Declaration shape used by `createApp({ queues: {...} })`. */
+export type QueueDeclaration<TBody = unknown> = {
+  /** wrangler binding name (e.g. 'ORDER_QUEUE'). */
+  readonly binding: string;
+  /** Schema validated against the message body before send. */
+  readonly schema: MessageSchema<TBody>;
+};

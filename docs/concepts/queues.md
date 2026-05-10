@@ -322,21 +322,113 @@ expect(msg.ack).toHaveBeenCalled();
 
 This is what the framework's own queue tests do — it's the cleanest way to exercise validation, dispatch, and DLQ logic together.
 
+## Typed producer wrapper: `c.var.queues`
+
+Producing a message via the raw binding works:
+
+```ts
+await c.env.ORDER_QUEUE.send({ type: 'order.placed', orderId: post.id });
+```
+
+But it has three problems: type safety depends on `Queue<T>` being correctly declared in your `Bindings`, validation only happens at the consumer (slow feedback), and there's no central place for cross-cutting concerns like tracing or retries.
+
+The framework provides a typed wrapper. Declare a producer manifest in `createApp({ queues })`:
+
+```ts
+import { OrderEventSchema } from './modules/orders/orders.consumer';
+
+const { app, queue } = createApp({
+  bindings: {} as Bindings,
+  db: drizzleAdapter({ schema }),
+  modules: [...],
+  queues: {
+    orders: {
+      binding: 'ORDER_QUEUE',
+      schema: OrderEventSchema,
+    },
+  },
+  routes: ...,
+});
+```
+
+Then send from any service or route:
+
+```ts
+await c.var.queues.orders.send({ type: 'order.placed', orderId: post.id });
+//                              ↑ typed against z.infer<typeof OrderEventSchema>
+//                              ↑ validated synchronously before the network call
+```
+
+If you send a malformed body, you get a `ValidationError` *at the call site* instead of waiting for the consumer to reject it 30 seconds later:
+
+```ts
+try {
+  await c.var.queues.orders.send({ type: 'wrong' });
+} catch (err) {
+  if (err instanceof ValidationError) {
+    // handle the producer-side validation failure
+  }
+}
+```
+
+To make it appear at the type level, augment `QueuesRegistry` in `types.d.ts`:
+
+```ts
+declare module '@katajs/core' {
+  interface QueuesRegistry {
+    orders: TypedQueue<OrderEvent>;
+  }
+}
+```
+
+`katajs add queue <name> --in <module>` does both wirings (the queues entry on `createApp` and the `QueuesRegistry` augmentation) automatically.
+
+### Producer and consumer are independent
+
+The producer manifest on `createApp` is **completely independent of consumer modules.** A module can have a `consumer:` field, the app can have a `queues:` entry for that same queue, both, or neither — whichever halves this Worker is responsible for:
+
+| Worker | Producer manifest? | Consumer module? |
+|---|---|---|
+| Single-Worker (api produces + consumes) | Yes | Yes |
+| `apps/api` in monorepo (produces only) | Yes | No |
+| `apps/worker` in monorepo (consumes only) | No | Yes |
+
+The schema is shared between halves by **TypeScript import** — not by framework wiring. In single-Worker, both halves import from `modules/orders/orders.consumer.ts`. In monorepo, the schema lives in `packages/events/` (or is duplicated, or one app imports from the other).
+
+### Consumer-only mode for apps/worker
+
+When scaffolding a queue consumer in a queue-only Worker (where there's no `createApp({ queues })` block to add to, or the user genuinely doesn't want the producer wired), pass `--no-producer`:
+
+```bash
+katajs add queue orders --in orders-consumer --no-producer
+```
+
+The CLI generates the consumer file and wires it into the module, but skips the `createApp.queues` entry and the `QueuesRegistry` augmentation.
+
+### Batch sends
+
+`sendBatch` is also typed and validated:
+
+```ts
+await c.var.queues.events.sendBatch([
+  { type: 'page.view', userId: 'u1', path: '/' },
+  { type: 'page.view', userId: 'u2', path: '/about' },
+]);
+```
+
+The framework calls Cloudflare's `Queue.sendBatch` if the binding exposes it; otherwise falls back to per-message `send`. Validation runs against every body before any network call — first failure aborts the batch.
+
 ## What's not in v0.2
 
-Some things on the roadmap but not in this release:
-
-- **Typed producer wrapper.** Today you call `c.env.ORDER_QUEUE.send(...)`; v0.3's `@katajs/queues` package will add `c.var.resolve('queues').orders.send(...)` as a typed convenience layer. Both will coexist.
-- **Monorepo `apps/worker/` companion.** When you graduate to `--monorepo`, a follow-up version will support a sibling Worker that imports modules from `packages/modules/` and runs queue-only (no HTTP). Today, `--monorepo` ships only the API; queue consumers live alongside it as a single Worker.
-- **`katajs add queue <name>`.** A CLI command to scaffold a consumer module + wrangler bindings + Worker entry update. Coming alongside the typed producer wrapper.
-
-The runtime shape is stable — when these land they're additions, not breaking changes.
+- **Monorepo `apps/worker/` with shared modules.** `apps/worker` exists today (sibling Worker), but it has its own modules. If multiple apps need to share a module, extract to `packages/modules/` manually for now.
+- **Producer-side retry-with-backoff.** The wrapper delegates straight to the binding's `send`. Cloudflare handles retries on the consumer side; producer retries are user code.
+- **Outbox pattern helpers** for transactional sends.
 
 ## Summary
 
-- A module can declare `consumer: { queue, schema, dlq?, maxRetries?, handle | handleBatch }`.
-- `createApp` returns `{ app, queue, modules }`. `queue` is `undefined` if no module has a consumer.
-- Per-message handler auto-acks on success, auto-retries on throw, DLQs after `maxRetries`.
-- Batch handler gives full per-message control for bulk operations.
-- Producers are free — any code with the binding can `send()`. No framework wiring needed.
-- Schemas live in the consumer module; producers import the variant they need.
+- A module can declare `consumer: { queue, schema, dlq?, maxRetries?, handle | handleBatch }` — the consumer side.
+- `createApp({ queues: { name: { binding, schema } } })` declares the producer side. Surfaces as `c.var.queues.<name>.send(body)` and `sendBatch(bodies)`.
+- Producer and consumer are independent — declare either half, both, or neither.
+- Producer-side validation happens synchronously before send; throws `ValidationError` on bad bodies.
+- Schemas are shared by TypeScript import, not framework wiring.
+- `katajs add queue` wires both halves automatically in single-Worker apps; pass `--no-producer` for consumer-only.

@@ -14,17 +14,19 @@ cli
   .option('--binding <BINDING>', 'wrangler binding name (for `add queue`; defaults to <NAME>_QUEUE)')
   .option('--dlq <DLQ_BINDING>', 'wrangler binding name for the dead-letter queue (for `add queue`)')
   .option('--batch', 'Generate `handleBatch` instead of `handle` (for `add queue`)')
+  .option('--no-producer', 'Skip the producer manifest entry (for consumer-only Workers, e.g. apps/worker)')
   .example('  katajs add module comments')
   .example('  katajs add service featured --in posts')
   .example('  katajs add route post /comments --in posts')
   .example('  katajs add queue orders --in orders')
   .example('  katajs add queue orders --in orders --dlq ORDERS_DLQ --batch')
+  .example('  katajs add queue orders --in orders --no-producer  # consumer-only (apps/worker)')
   .action(
     async (
       kind: string,
       name: string,
       path: string | undefined,
-      opts: { in?: string; binding?: string; dlq?: string; batch?: boolean },
+      opts: { in?: string; binding?: string; dlq?: string; batch?: boolean; producer?: boolean },
     ) => {
       try {
         switch (kind) {
@@ -61,6 +63,8 @@ cli
               binding: opts.binding,
               dlq: opts.dlq,
               batch: opts.batch ?? false,
+              // cac maps `--no-producer` to producer=false
+              noProducer: opts.producer === false,
             });
             return;
           default:

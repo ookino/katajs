@@ -12,6 +12,7 @@ import {
   type QueueErrorMapperOptions,
   type QueueHandler,
 } from './queue';
+import type { QueueDeclaration } from './types';
 
 /** Base Hono app produced by `createApp` (middleware + onError, no routes mounted). */
 export type BaseApp = Hono<{ Variables: RequestVariables }>;
@@ -52,6 +53,21 @@ export type AppConfig<
 
   /** Override `crypto.randomUUID` for deterministic tests. */
   generateRequestId?: () => string;
+
+  /**
+   * Producer manifest. Each entry registers a queue this app sends to,
+   * surfaced as a typed wrapper at `c.var.queues.<name>.send(body)`.
+   * Validates body against the schema before delegating to the underlying
+   * Cloudflare binding.
+   *
+   *   queues: {
+   *     orders: { binding: 'ORDER_QUEUE', schema: OrderEventSchema },
+   *   }
+   *
+   * Independent of consumer modules — the consumer can live in this app
+   * (single-Worker), in `apps/worker` (monorepo), or be external entirely.
+   */
+  queues?: Record<string, QueueDeclaration>;
 
   /**
    * Define the app's HTTP surface. Receives the framework-prepared base app
@@ -117,6 +133,7 @@ export function createApp<
       registry,
       db: config.db,
       generateRequestId: config.generateRequestId,
+      queues: config.queues,
     }),
   );
 

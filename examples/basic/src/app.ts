@@ -21,6 +21,9 @@ const { app, queue } = createApp({
     postsModule,
     // katajs:modules
   ],
+  queues: {
+    // katajs:queues
+  },
   routes: (base) =>
     base
       .route(postsModule.prefix, postsModule.routes),

@@ -16,4 +16,8 @@ declare module '@katajs/core' {
     extends PostsRegistry
     // katajs:registry
   {}
+
+  interface QueuesRegistry {
+    // katajs:queues-registry
+  }
 }
