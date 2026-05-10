@@ -50,7 +50,7 @@ The runtime is ~600 lines of TypeScript. The Drizzle adapter is ~80 lines. The C
 - **[Errors](./errors.md)** — `AppError` subclasses, `errorMapper`, the response shape.
 - **[Transactions](./transactions.md)** — `withTransaction`, repository pattern, cross-module atomicity.
 - **[Testing](./testing.md)** — `makeTestContainer` for unit tests, real Postgres for integration tests.
-- **[Devtools](./devtools.md)** — the static module graph (Shape A) and the interactive devtools roadmap (Shape B).
+- **[Devtools](./devtools.md)** — the static module graph (Shape A) and the live interactive devtools UI (Shape B).
 - **[Architecture](./architecture.md)** — when to split modules, when to graduate to `--monorepo`.
 
 ## Quickstart

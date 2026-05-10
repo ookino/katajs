@@ -55,7 +55,7 @@ await c.withTransaction(async (tx) => {
 });
 ```
 
-See [Transactions](./transactions.md) (v0.2) for what's tx-bound vs shared.
+See [Transactions](./transactions.md) for what's tx-bound vs shared.
 
 ## What's on the container
 
@@ -127,4 +127,4 @@ await service.create(input);
 expect(c.resolve('auditService').log).toHaveBeenCalled();
 ```
 
-See [Testing](./testing.md) (v0.2) for the full story.
+See [Testing](./testing.md) for the full story.

@@ -187,7 +187,7 @@ routes: (base) =>
 
 Use this for `/health`, `/ready`, `/version`, webhooks, debug introspection. Anything where wrapping in a module would feel forced.
 
-## When to graduate to `--monorepo` (not yet shipped — v0.2 roadmap)
+## When to graduate to `--monorepo`
 
 For some projects, a single Workers package outgrows itself:
 
@@ -195,13 +195,13 @@ For some projects, a single Workers package outgrows itself:
 - A queue consumer needs to share modules with the HTTP app but is a separate Worker.
 - Multiple Workers (admin, public, API) share the same database schema.
 
-`--monorepo` produces a layout where the Drizzle schema, types, and shared code live in `packages/`, and the various apps (`apps/api`, `apps/worker`, `apps/web`) consume them:
+`pnpm create katajs my-monorepo --monorepo` produces a layout where the Drizzle schema, types, and shared code live in `packages/`, and the various apps (`apps/api`, `apps/worker`, `apps/web`) consume them:
 
 ```
 my-monorepo/
   apps/
     api/             ← the main Hono+Workers app
-    worker/          ← (with --monorepo + queues) sibling Worker for queue consumers
+    worker/          ← (with --monorepo --worker) sibling Worker for queue consumers
     web/             ← TanStack Start (one-line README pointing at its own scaffolder)
   packages/
     db/              ← Drizzle schema, migrations, types
@@ -211,9 +211,9 @@ my-monorepo/
   package.json
 ```
 
-This isn't shipped yet — the v0.2 roadmap covers it. For now, `pnpm create katajs my-app` produces a single-API project. When you outgrow it, the migration is mostly mechanical: extract `packages/db`, move the auth module into `packages/auth`, point apps' imports at the workspace packages.
+Combine flags as you need: `--monorepo`, `--monorepo --auth`, `--monorepo --worker`, or all three. If you start as a single-API project and outgrow it, the migration is mostly mechanical: extract `packages/db`, move the auth module into `packages/auth`, point apps' imports at the workspace packages.
 
-The decision rule when v0.2's `--monorepo` lands:
+The decision rule:
 
 | Project shape | Use |
 |---|---|
@@ -246,4 +246,4 @@ If you find yourself reaching for one of these, the framework's not the right fi
 - The devtools graph (`pnpm graph`) is your design feedback loop — split-and-the-graph-clarifies is the signal.
 - Free-floating routes (`/health`, webhooks) live in `createApp`'s `routes` callback.
 - Services-only modules carry cross-cutting concerns (logging, audit, events).
-- `--monorepo` (v0.2 roadmap) for projects with multiple deployable apps sharing modules.
+- `--monorepo` for projects with multiple deployable apps sharing modules; pair with `--auth` and/or `--worker` for the full set.

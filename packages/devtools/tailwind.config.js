@@ -5,11 +5,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: '#0f1115',
-        panel: '#161922',
-        'panel-2': '#1d2230',
-        border: '#2a3041',
-        muted: '#8b93a7',
+        // Brand neutral (shadcn neutral palette in dark mode):
+        // bg=950, panel=900, panel-2=border=800, muted-fg=400.
+        bg: '#0a0a0a',
+        panel: '#171717',
+        'panel-2': '#262626',
+        border: '#262626',
+        muted: '#a3a3a3',
+        // Functional accents — kept colored so graph edges + HTTP methods
+        // remain readable. These are signal colors, not brand colors.
         accent: '#7aa2ff',
         'accent-2': '#57c7b9',
         get: '#57c7b9',

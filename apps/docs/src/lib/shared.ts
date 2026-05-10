@@ -1,4 +1,4 @@
-export const appName = 'katajs';
+export const appName = 'Kata';
 export const docsRoute = '/docs';
 export const docsImageRoute = '/og/docs';
 

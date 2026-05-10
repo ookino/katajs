@@ -3,11 +3,29 @@ title: Welcome
 description: An opinionated Hono framework for Cloudflare Workers.
 ---
 
-**katajs** is a small, opinionated framework that sits on top of [Hono](https://hono.dev) and Cloudflare Workers. It gives you a request-scoped DI container, type-safe modules with `provides`/`requires`, transactional services via Drizzle, queue producers and consumers as first-class concepts, and a static module-graph inspector — without adding much weight on top of Hono.
+**Kata** is a small, opinionated framework for backend services on Cloudflare Workers. It pairs [Hono](https://hono.dev) with a request-scoped DI container, type-safe modules, transactional services, queue producers and consumers, and a live devtools graph — without much weight on top of Hono.
+
+The packages publish under the `@katajs/*` scope on npm; the framework itself goes by **Kata**.
+
+## What you get
+
+A consistent project structure with one way to do each common backend task:
+
+- **Modules** — group related routes + services; declare cross-module dependencies explicitly with `requires:`. Boot validation fails if anything's wired wrong, with the exact missing key called out by name.
+- **Request-scoped container** — `c.var.resolve('postService')` builds services lazily per request and disposes them at the end. No globals, no singletons that leak DB connections across requests.
+- **Strict type-level autocomplete** — every service key, module name, and route path is autocompleted by your editor. Typos are compile errors.
+- **Validation at the boundary** — `validate({ body, query, param })` wraps `@hono/zod-validator` to throw a typed `ValidationError` and preserves Hono RPC inference end-to-end. Clients get the exact validated input types.
+- **Domain errors → HTTP responses** — `throw new PostNotFoundError(id)` becomes a structured JSON 404 via `errorMapper`. Status, code, and payload travel together.
+- **Transactions across modules** — `c.var.withTransaction(fn)` gives you a sub-container where every repository is bound to the same transaction. Rolls back on throw.
+- **Cloudflare Queues, first-class** — modules can declare a `consumer:`; `createApp({ queues })` declares producers with shared schemas. The same Worker exports both `fetch` and `queue` handlers, or you split them across `apps/api` and `apps/worker` in monorepo mode.
+- **Drizzle adapter** — wired through Hyperdrive. One line in `createApp` and `c.db` is your strongly-typed Drizzle client per request.
+- **Devtools** — `pnpm graph` produces a static HTML snapshot of your modules, edges, and routes. `npx katajs-devtools` opens a live React UI with a graph canvas, module drawer, routes table, queue producer/consumer view, and a Cmd+K palette.
+- **Two scaffold shapes** — `pnpm create katajs my-app` for a single-API project, or `--monorepo` for `apps/*` + `packages/*` with shared db / auth / queue Worker. Optional `--auth` adds Better Auth wired in.
+- **CLI mutators** — `katajs add module|service|route|queue` keep your `app.ts`, `types.d.ts`, registry, and graph script in sync via anchored codemods. No hand-editing the wiring as your project grows.
 
 ## Start here
 
-- **[Intro](/docs/intro)** — what katajs is, what it isn't, who it's for.
+- **[Intro](/docs/intro)** — what Kata is, what it isn't, who it's for.
 - **[Modules](/docs/modules)** — the unit of organization: `provides`, `requires`, routed vs services-only.
 - **[Container](/docs/container)** — request-scoped DI, lazy resolution, no global singletons.
 - **[Devtools](/docs/devtools)** — `inspectModules()` for static graphs and `katajs-devtools` for the live UI.
@@ -30,3 +48,13 @@ export const postsModule = defineModule({
 ```
 
 Then `createApp({ modules: [eventsModule, auditModule, postsModule] })` wires the container, validates the dependency graph at boot, and gives you a Hono app you can deploy.
+
+## Quickstart
+
+```bash
+pnpm create katajs my-app
+cd my-app
+pnpm dev
+```
+
+Open `src/modules/posts/` to see the example module. Open `src/app.ts` to see how it's wired in. Read the [Intro](/docs/intro) for the longer story.
