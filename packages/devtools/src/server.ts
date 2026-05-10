@@ -19,7 +19,7 @@ type SseClient = {
 };
 
 const here = fileURLToPath(new URL('.', import.meta.url));
-const uiStaticDir = resolve(here, 'ui-static');
+const uiStaticDir = resolve(here, 'ui');
 
 function mimeFor(path: string): string {
   if (path.endsWith('.html')) return 'text/html; charset=utf-8';
@@ -151,23 +151,24 @@ export async function startServer(options: ServerOptions): Promise<{
         send(res, 200, buf, 'text/html; charset=utf-8');
         return;
       }
-      send(res, 404, 'UI bundle not found', 'text/plain; charset=utf-8');
+      send(
+        res,
+        404,
+        'UI bundle not found — did you run `pnpm --filter @katajs/devtools build`?',
+        'text/plain; charset=utf-8',
+      );
       return;
     }
 
-    if (pathname.startsWith('/static/')) {
-      const rel = pathname.slice('/static/'.length);
-      const safe = normalize(rel).replace(/^([./\\])+/, '');
-      const filePath = join(uiStaticDir, safe);
-      if (filePath.startsWith(uiStaticDir) && existsSync(filePath)) {
-        const buf = await readFile(filePath);
-        send(res, 200, buf, mimeFor(filePath));
-        return;
-      }
-      send(res, 404, 'not found', 'text/plain; charset=utf-8');
+    // Serve any other path as a static file under the UI dir (Vite emits
+    // /assets/index-XYZ.js etc.).
+    const safe = normalize(pathname).replace(/^([./\\])+/, '');
+    const filePath = join(uiStaticDir, safe);
+    if (filePath.startsWith(uiStaticDir) && existsSync(filePath)) {
+      const buf = await readFile(filePath);
+      send(res, 200, buf, mimeFor(filePath));
       return;
     }
-
     send(res, 404, 'not found', 'text/plain; charset=utf-8');
   };
 

@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  body {
+    @apply min-h-screen;
+  }
+}
+
+/* React Flow theming overrides — match the dark panel scheme */
+.react-flow {
+  background: theme('colors.bg');
+}
+.react-flow__node {
+  font-family: theme('fontFamily.sans');
+}
+.react-flow__edge-path {
+  stroke: theme('colors.accent');
+  stroke-width: 1.5;
+}
+.react-flow__edge-text {
+  fill: theme('colors.muted');
+  font-family: theme('fontFamily.mono');
+  font-size: 10px;
+}
+.react-flow__edge-textbg {
+  fill: theme('colors.bg');
+}
+.react-flow__controls {
+  background: theme('colors.panel');
+  border: 1px solid theme('colors.border');
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: none;
+}
+.react-flow__controls-button {
+  background: theme('colors.panel');
+  color: theme('colors.muted');
+  border-bottom: 1px solid theme('colors.border');
+}
+.react-flow__controls-button:hover {
+  background: theme('colors.panel-2');
+  color: #e8ebf2;
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+.react-flow__minimap {
+  background: theme('colors.panel');
+  border: 1px solid theme('colors.border');
+  border-radius: 8px;
+}
+.react-flow__background {
+  background: theme('colors.bg');
+}
+.react-flow__background pattern circle {
+  fill: theme('colors.border');
+}
