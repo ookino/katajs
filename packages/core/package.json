@@ -1,6 +1,6 @@
 {
   "name": "@katajs/core",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "An opinionated framework for Hono on Cloudflare Workers — runtime.",
   "keywords": [
     "hono",
@@ -36,7 +36,11 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

@@ -1,6 +1,6 @@
 {
   "name": "@katajs/cli",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Project commands for katajs apps — `katajs add module/service/route`, codemods, and upgrades.",
   "keywords": [
     "katajs",
@@ -26,7 +26,11 @@
   "bin": {
     "katajs": "./dist/index.js"
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
