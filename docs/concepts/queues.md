@@ -1,4 +1,4 @@
-for # Queues
+# Queues
 
 katajs integrates Cloudflare Queues by extending the module shape: a module can declare an optional `consumer:` field describing what queue it consumes, what schema validates incoming bodies, and what to do with each message. `createApp` returns the queue handler alongside the Hono app, and the Worker exports both halves from one default export.
 
