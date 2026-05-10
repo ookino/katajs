@@ -1,4 +1,4 @@
-# Queues
+for # Queues
 
 katajs integrates Cloudflare Queues by extending the module shape: a module can declare an optional `consumer:` field describing what queue it consumes, what schema validates incoming bodies, and what to do with each message. `createApp` returns the queue handler alongside the Hono app, and the Worker exports both halves from one default export.
 
@@ -6,18 +6,18 @@ katajs integrates Cloudflare Queues by extending the module shape: a module can 
 
 ```ts
 // src/modules/orders/index.ts
-import { defineModule } from '@katajs/core';
-import { z } from 'zod';
-import { ordersRoutes } from './orders.routes';
-import { makeOrderService, type OrderService } from './orders.service';
+import { defineModule } from "@katajs/core";
+import { z } from "zod";
+import { ordersRoutes } from "./orders.routes";
+import { makeOrderService, type OrderService } from "./orders.service";
 
-const OrderEventSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('order.placed'), orderId: z.string().uuid() }),
-  z.object({ type: z.literal('order.refunded'), orderId: z.string().uuid() }),
+const OrderEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("order.placed"), orderId: z.string().uuid() }),
+  z.object({ type: z.literal("order.refunded"), orderId: z.string().uuid() }),
 ]);
 
 export const ordersModule = defineModule({
-  name: 'orders',
+  name: "orders",
   provides: {
     orderService: (c): OrderService => makeOrderService(c),
   },
@@ -25,20 +25,20 @@ export const ordersModule = defineModule({
 
   // HTTP side
   routes: ordersRoutes,
-  prefix: '/orders',
+  prefix: "/orders",
 
   // Queue side
   consumer: {
-    queue: 'ORDER_QUEUE',           // wrangler binding name
-    dlq: 'ORDER_DLQ',                // optional dead-letter binding
-    maxRetries: 5,                   // default 3
+    queue: "ORDER_QUEUE", // wrangler binding name
+    dlq: "ORDER_DLQ", // optional dead-letter binding
+    maxRetries: 5, // default 3
     schema: OrderEventSchema,
     async handle(message, c) {
-      const service = c.resolve('orderService');
+      const service = c.resolve("orderService");
       switch (message.body.type) {
-        case 'order.placed':
+        case "order.placed":
           return service.fulfill(message.body.orderId);
-        case 'order.refunded':
+        case "order.refunded":
           return service.refund(message.body.orderId);
       }
     },
@@ -67,12 +67,12 @@ export default {
 
 Producers and consumers are decoupled by design.
 
-| Concern | Where it lives |
-|---|---|
-| **Schema** | The owning consumer module (`orders/orders.schema.ts` or inline) |
-| **Consumer (handle messages)** | The owning module's `consumer:` field |
-| **Producers (send messages)** | Anywhere — any module's service, any route, even `app.onError` |
-| **Cross-module type sharing** | Standard TypeScript imports |
+| Concern                        | Where it lives                                                   |
+| ------------------------------ | ---------------------------------------------------------------- |
+| **Schema**                     | The owning consumer module (`orders/orders.schema.ts` or inline) |
+| **Consumer (handle messages)** | The owning module's `consumer:` field                            |
+| **Producers (send messages)**  | Anywhere — any module's service, any route, even `app.onError`   |
+| **Cross-module type sharing**  | Standard TypeScript imports                                      |
 
 Any code with access to the queue binding can produce:
 
@@ -113,6 +113,7 @@ users module      ──┘                              ↓
 ```
 
 The `notifications` module owns:
+
 - The schema (a discriminated union of every notification event type)
 - The consumer that dispatches by `type` and sends emails/pushes
 - Services that do the actual sending
@@ -189,7 +190,9 @@ When a message's `attempts` reaches `maxRetries` (default `3`), the framework:
    {
      "originalQueue": "ORDER_QUEUE",
      "messageId": "...",
-     "body": { /* the original message body */ },
+     "body": {
+       /* the original message body */
+     },
      "error": "the error message",
      "attempts": 5,
      "failedAt": "2026-01-15T12:34:56.789Z"
@@ -203,12 +206,12 @@ The DLQ is itself a queue. You can have a separate consumer module that consumes
 
 ```ts
 const orderDlqModule = defineModule({
-  name: 'order-dlq',
+  name: "order-dlq",
   provides: {},
   requires: [] as const,
   consumer: {
-    queue: 'ORDER_DLQ',
-    schema: DlqEnvelopeSchema,  // matches the shape above
+    queue: "ORDER_DLQ",
+    schema: DlqEnvelopeSchema, // matches the shape above
     async handle(msg, c) {
       // log to monitoring, store for later replay, page on-call, etc.
     },
@@ -225,7 +228,7 @@ A queue needs both a producer binding (to send) and a consumer binding (to recei
   "queues": {
     "producers": [
       { "binding": "ORDER_QUEUE", "queue": "orders" },
-      { "binding": "ORDER_DLQ",   "queue": "orders-dlq" }
+      { "binding": "ORDER_DLQ", "queue": "orders-dlq" }
     ],
     "consumers": [
       {
@@ -243,13 +246,14 @@ A queue needs both a producer binding (to send) and a consumer binding (to recei
 Two important things:
 
 - **Cloudflare's `max_retries`** at the consumer level is the platform's retry limit. After exhausting retries, Cloudflare will call your handler with messages that have `attempts: max_retries + 1`. Your `consumer.maxRetries` in code is the framework's own retry/DLQ threshold — it can be the same as wrangler's, lower (DLQ before Cloudflare gives up), or higher (rare; you'd need to ack-and-replay manually).
-- **Cloudflare's `dead_letter_queue`** is a platform-level DLQ. Cloudflare routes messages there *automatically* after `max_retries`. The framework's `consumer.dlq` is a different layer — it lets the *application* decide when to give up earlier (e.g., on validation failure, before exhausting platform retries). Often you want both: platform-level DLQ for transient failures, framework-level DLQ for known-bad messages.
+- **Cloudflare's `dead_letter_queue`** is a platform-level DLQ. Cloudflare routes messages there _automatically_ after `max_retries`. The framework's `consumer.dlq` is a different layer — it lets the _application_ decide when to give up earlier (e.g., on validation failure, before exhausting platform retries). Often you want both: platform-level DLQ for transient failures, framework-level DLQ for known-bad messages.
 
 For the simple case, set `max_retries` in wrangler and `maxRetries` in `consumer:` to the same value, and use one queue as DLQ for both.
 
 ## Container lifecycle
 
 Per-message: each message gets its own container.
+
 - `c.requestId` is the message's `id` — propagate through logs for correlation.
 - `c.env` is the Cloudflare env (same as HTTP).
 - `c.db` is a fresh DB client (fresh `pg.Pool` per message, since Workers don't persist state across invocations).
@@ -258,7 +262,7 @@ Per-message: each message gets its own container.
 
 Batch: one container for the whole batch. Same shape; `c.requestId` is a UUID.
 
-What's *not* available: `c.c` (the Hono Context). Queue handlers don't have an HTTP request, so accessing `c.c.req` (or any other Hono Context property) throws a clear error. Services that need HTTP-specific context shouldn't be invoked from queue handlers.
+What's _not_ available: `c.c` (the Hono Context). Queue handlers don't have an HTTP request, so accessing `c.c.req` (or any other Hono Context property) throws a clear error. Services that need HTTP-specific context shouldn't be invoked from queue handlers.
 
 ## Errors and observability
 
@@ -269,9 +273,13 @@ const { app, queue } = createApp({
   // ...
   queueErrorMapper: {
     onUnhandled: (err, ctx) => {
-      console.error('[queue]', ctx.queue, ctx.messageId, err);
+      console.error("[queue]", ctx.queue, ctx.messageId, err);
       Sentry.captureException(err, {
-        tags: { queue: ctx.queue, messageId: ctx.messageId, attempts: ctx.attempts },
+        tags: {
+          queue: ctx.queue,
+          messageId: ctx.messageId,
+          attempts: ctx.attempts,
+        },
       });
     },
   },
@@ -289,20 +297,27 @@ Two layers:
 The handler is a function that takes a message and a container. Test it like any service method:
 
 ```ts
-import { makeTestContainer } from '@katajs/core/testing';
+import { makeTestContainer } from "@katajs/core/testing";
 
-it('fulfills an order on order.placed', async () => {
+it("fulfills an order on order.placed", async () => {
   const fulfill = vi.fn();
   const c = makeTestContainer({
     services: { orderService: { fulfill, refund: vi.fn() } },
   });
 
   await ordersModule.consumer!.handle!(
-    { id: 'm1', timestamp: new Date(), body: { type: 'order.placed', orderId: 'o1' }, attempts: 1, ack: vi.fn(), retry: vi.fn() },
+    {
+      id: "m1",
+      timestamp: new Date(),
+      body: { type: "order.placed", orderId: "o1" },
+      attempts: 1,
+      ack: vi.fn(),
+      retry: vi.fn(),
+    },
     c,
   );
 
-  expect(fulfill).toHaveBeenCalledWith('o1');
+  expect(fulfill).toHaveBeenCalledWith("o1");
 });
 ```
 
@@ -311,9 +326,18 @@ it('fulfills an order on order.placed', async () => {
 Drive the dispatcher with a fake batch of fake messages:
 
 ```ts
-const { queue } = createApp({ /* ... */ });
-const msg = { /* ...fake message... */ };
-const batch = { queue: 'ORDER_QUEUE', messages: [msg], ackAll: vi.fn(), retryAll: vi.fn() };
+const { queue } = createApp({
+  /* ... */
+});
+const msg = {
+  /* ...fake message... */
+};
+const batch = {
+  queue: "ORDER_QUEUE",
+  messages: [msg],
+  ackAll: vi.fn(),
+  retryAll: vi.fn(),
+};
 
 await queue!(batch as MessageBatch, fakeEnv, {});
 
@@ -327,7 +351,7 @@ This is what the framework's own queue tests do — it's the cleanest way to exe
 Producing a message via the raw binding works:
 
 ```ts
-await c.env.ORDER_QUEUE.send({ type: 'order.placed', orderId: post.id });
+await c.env.ORDER_QUEUE.send({ type: "order.placed", orderId: post.id });
 ```
 
 But it has three problems: type safety depends on `Queue<T>` being correctly declared in your `Bindings`, validation only happens at the consumer (slow feedback), and there's no central place for cross-cutting concerns like tracing or retries.
@@ -354,16 +378,16 @@ const { app, queue } = createApp({
 Then send from any service or route:
 
 ```ts
-await c.var.queues.orders.send({ type: 'order.placed', orderId: post.id });
+await c.var.queues.orders.send({ type: "order.placed", orderId: post.id });
 //                              ↑ typed against z.infer<typeof OrderEventSchema>
 //                              ↑ validated synchronously before the network call
 ```
 
-If you send a malformed body, you get a `ValidationError` *at the call site* instead of waiting for the consumer to reject it 30 seconds later:
+If you send a malformed body, you get a `ValidationError` _at the call site_ instead of waiting for the consumer to reject it 30 seconds later:
 
 ```ts
 try {
-  await c.var.queues.orders.send({ type: 'wrong' });
+  await c.var.queues.orders.send({ type: "wrong" });
 } catch (err) {
   if (err instanceof ValidationError) {
     // handle the producer-side validation failure
@@ -374,7 +398,7 @@ try {
 To make it appear at the type level, augment `QueuesRegistry` in `types.d.ts`:
 
 ```ts
-declare module '@katajs/core' {
+declare module "@katajs/core" {
   interface QueuesRegistry {
     orders: TypedQueue<OrderEvent>;
   }
@@ -387,11 +411,11 @@ declare module '@katajs/core' {
 
 The producer manifest on `createApp` is **completely independent of consumer modules.** A module can have a `consumer:` field, the app can have a `queues:` entry for that same queue, both, or neither — whichever halves this Worker is responsible for:
 
-| Worker | Producer manifest? | Consumer module? |
-|---|---|---|
-| Single-Worker (api produces + consumes) | Yes | Yes |
-| `apps/api` in monorepo (produces only) | Yes | No |
-| `apps/worker` in monorepo (consumes only) | No | Yes |
+| Worker                                    | Producer manifest? | Consumer module? |
+| ----------------------------------------- | ------------------ | ---------------- |
+| Single-Worker (api produces + consumes)   | Yes                | Yes              |
+| `apps/api` in monorepo (produces only)    | Yes                | No               |
+| `apps/worker` in monorepo (consumes only) | No                 | Yes              |
 
 The schema is shared between halves by **TypeScript import** — not by framework wiring. In single-Worker, both halves import from `modules/orders/orders.consumer.ts`. In monorepo, the schema lives in `packages/events/` (or is duplicated, or one app imports from the other).
 
@@ -411,8 +435,8 @@ The CLI generates the consumer file and wires it into the module, but skips the 
 
 ```ts
 await c.var.queues.events.sendBatch([
-  { type: 'page.view', userId: 'u1', path: '/' },
-  { type: 'page.view', userId: 'u2', path: '/about' },
+  { type: "page.view", userId: "u1", path: "/" },
+  { type: "page.view", userId: "u2", path: "/about" },
 ]);
 ```
 
