@@ -1,8 +1,13 @@
 # Devtools
 
-katajs ships a static module-graph inspector in the runtime — `inspectModules()` walks your app's modules and produces a JSON snapshot, a Mermaid graph source, or a self-contained HTML page. It's everything you need to *see* the structure of your app, today. A live interactive devtools UI ("Shape B") is on the v0.2 roadmap.
+katajs ships two complementary devtools surfaces:
 
-## What you get today: Shape A
+- **Shape A** — a static module-graph inspector in the runtime (`inspectModules()`). Pure, synchronous, build-time-safe. Run it as a script and get a self-contained HTML snapshot.
+- **Shape B** — a live interactive web UI in `@katajs/devtools`. Run `npx katajs-devtools` and get a graph canvas, module drawer, routes table, and Cmd+K palette in your browser, hot-reloading as you edit code.
+
+Both share the same `Inspection` data contract from `@katajs/core`, so anything you can render in Shape A you can navigate interactively in Shape B.
+
+## Shape A — static snapshot
 
 ```ts
 import { inspectModules } from '@katajs/core';
@@ -54,7 +59,18 @@ The route list dedupes Hono's internal entries — Hono's `app.routes` includes 
 
 ## The `pnpm graph` script
 
-The scaffolder generates a `scripts/graph.ts` that runs the inspector and writes an HTML file:
+The scaffolder generates two files. `scripts/modules.ts` is the canonical source of truth for the module tuple — both `pnpm graph` and `katajs-devtools` import from it:
+
+```ts
+// scripts/modules.ts (generated)
+import { postsModule } from '../src/modules/posts/index';
+// katajs:graph-imports
+
+export const modules = [
+  postsModule,
+  // katajs:graph-modules
+];
+```
 
 ```ts
 // scripts/graph.ts (generated)
@@ -63,13 +79,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectModules } from '@katajs/core';
 
-import { postsModule } from '../src/modules/posts/index';
-// katajs:graph-imports
-
-const modules = [
-  postsModule,
-  // katajs:graph-modules
-];
+import { modules } from './modules';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = resolve(here, '..', 'graph.html');
@@ -94,7 +104,7 @@ pnpm graph
 open graph.html
 ```
 
-`katajs add module` updates the graph script's imports and modules array automatically (those `// katajs:graph-imports` and `// katajs:graph-modules` anchors), so the snapshot stays in sync as your app grows.
+`katajs add module` updates `scripts/modules.ts` automatically (the `// katajs:graph-imports` and `// katajs:graph-modules` anchors), so both the snapshot and the live devtools stay in sync as your app grows.
 
 ## What the HTML page looks like
 
@@ -131,44 +141,76 @@ This is what makes graphing an architecture diagram a one-line script in a kataj
 - **Design reviews.** Run `pnpm graph` on a feature branch, paste the HTML or Mermaid into the PR. "Here's the new dependency you're adding."
 - **CI artifacts.** Generate `graph.html` as part of a build job; serve it from your docs site or attach it to releases.
 
-## What Shape A doesn't give you (and Shape B will)
+## Shape B — live interactive devtools
 
-The static snapshot has limits:
+`@katajs/devtools` is a dev-dependency-only package that turns the same `Inspection` data into an interactive browser UI. Install it, then run the bin from your project root:
 
-- **Not interactive.** You can't click a module to see its services in detail; you read the table.
-- **Not live.** It reflects whatever the source code looked like when you last ran `pnpm graph`.
-- **No drill-down.** You can't click a service to see who resolves it from where.
-- **No request flow.** You can't trace "this incoming request hits these routes, resolves these services, opens this transaction."
+```bash
+pnpm add -D @katajs/devtools
+npx katajs-devtools
+#   katajs-devtools — interactive module graph
+#   ➜ Local: http://127.0.0.1:4242
+```
 
-These are the things "Shape B" addresses — an interactive web UI shipped as `@katajs/devtools` (a separate dev-dependency package).
+The bin imports your `scripts/modules.ts` in-process (via tsx's ESM register), runs `inspectModules()`, and serves the result over HTTP + Server-Sent Events. A chokidar watcher on `src/modules/**` and `scripts/modules.ts` re-runs the inspection on every save and pushes the new snapshot down the SSE channel — the UI hot-reloads without a refresh.
 
-## Shape B preview (v0.2 roadmap)
+What you see:
 
-The plan, as it stands:
+- **Graph canvas** — React Flow with a dagre auto-layout (left-to-right, dependencies flowing right). Each module is a card showing its prefix, provides count, requires count, and route count. Click a node to highlight it across the graph and the sidebar; click empty space to deselect.
+- **Module sidebar** — every module in the app, with at-a-glance provides/requires counts and a "services-only" indicator for non-routed modules.
+- **Module drawer** (right side, on selection) — full provides list as accent-coloured chips, full requires list with `← provided by X` backlinks that you can click to navigate the graph, and the routes owned by the selected module.
+- **Routes view** — flat table of every route with method-coloured chips, free-text filter (matches path / method / module), and per-method filter chips. Click a module name to select that module and switch back to the graph.
+- **Cmd+K palette** (Ctrl+K on Linux/Windows) — fuzzy-search across modules and routes; selecting jumps to the appropriate view.
 
-- New package `@katajs/devtools`, dev-dependency-only.
-- Stack: **Vite + React + TypeScript + Tailwind + shadcn/ui + React Flow (xyflow)**.
-- CLI bin: `npx katajs-devtools` spawns a local server on `:4242`, opens browser.
-- Two loader modes:
-  1. **Static load** — imports the user's `modules` tuple at start, calls `inspectModules()`, hands JSON to UI. Same data Shape A produces, just rendered interactively.
-  2. **Live mode** (fallback) — fetches from a `__katajs/graph.json` debug endpoint on the running Wrangler dev server. Updates as you edit code.
-- UI panels: graph canvas with React Flow, module sidebar, drill-down detail drawer (provides/requires/routes/source-link), routes table with filtering, command palette (Cmd+K), Zod schema preview.
-- No analytics, no telemetry, no remote anything — entirely local.
+CLI flags:
 
-This is roughly a week of focused work and lands as a v0.2 milestone. The data contract is already defined by `Inspection` in `packages/core/src/inspect.ts` — the live UI just reads the same JSON.
+```
+--port <port>           default 4242 (auto-bumps if busy)
+--host <host>           default 127.0.0.1
+--no-open               do not auto-open the browser
+--modules-file <path>   override the modules file location
+```
 
-## What's still on the roadmap beyond Shape B
+The UI is a Vite-built React bundle served from the same Node process. No telemetry, no remote anything — entirely local.
+
+### Data flow
+
+```
+scripts/modules.ts (your modules tuple)
+        │ tsx ESM register
+        ▼
+inspectModules() ──────► JSON over /api/graph.sse ──────► React UI
+        ▲                                                     │
+        │  chokidar re-fires on src/modules/** change         │  Cmd+K, click,
+        └─────────────────────────────────────────────────────┘  filter
+```
+
+The data contract is the `Inspection` shape from `@katajs/core` — exactly what Shape A produces. Anything you can render in `graph.html` is navigable in Shape B; the only difference is that Shape B keeps the graph live and connects modules together via interactive backlinks.
+
+### When to use which
+
+| Use case | Reach for |
+|---|---|
+| Snapshot for a PR / design doc / Slack | Shape A — `pnpm graph`, drag the HTML in. |
+| Embed a graph in markdown / GitHub README | Shape A — `insp.mermaid()`. |
+| CI artifact, build output | Shape A. |
+| Explore an unfamiliar module's deps interactively | Shape B. |
+| Debug "where is `userService` resolved from?" | Shape B's drawer + backlinks. |
+| Edit code and watch the graph mutate | Shape B (hot reload). |
+
+## Roadmap beyond Shape B
 
 - **Request tracing.** Show, for a given request, which routes matched, which services resolved, which transactions opened. Needs runtime instrumentation hooks in core.
 - **Schema explorer.** Drill into a module's Zod schemas with example values rendered.
 - **Dependency lint.** Static rules — "leaf modules can't require service modules", "circular DB deps are forbidden" — surfaced in the UI.
 - **Time-travel.** Snapshot the graph at each commit; diff between branches.
+- **Source-link integration.** Click a module to jump to its `index.ts` in your editor.
 
 These are post-1.0 ideas. Shape A and Shape B handle the immediate "see the structure" need.
 
 ## Summary
 
 - `inspectModules(modules)` is a pure function you can call any time — at build, in a script, in a test.
-- The scaffolder ships `scripts/graph.ts` + `pnpm graph` for a one-line snapshot to `graph.html`.
-- Self-contained HTML page with Mermaid graph + modules and routes tables.
-- Interactive devtools (Shape B) coming as `@katajs/devtools` in v0.2.
+- `scripts/modules.ts` is the canonical source of truth for the modules tuple; both `pnpm graph` and `katajs-devtools` import from it.
+- `pnpm graph` produces a self-contained `graph.html` with a Mermaid graph + modules and routes tables.
+- `npx katajs-devtools` opens an interactive React UI: graph canvas, module drawer, routes view, Cmd+K — all hot-reloading as you edit.
