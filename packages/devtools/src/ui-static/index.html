@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>katajs devtools</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-2: #1d2230;
+    --text: #e8ebf2;
+    --muted: #8b93a7;
+    --accent: #7aa2ff;
+    --accent-2: #57c7b9;
+    --border: #2a3041;
+    --error: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  header .badge {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-left: 0.5rem;
+  }
+  .status {
+    font-size: 0.8rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .status .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--muted);
+    transition: background 0.2s;
+  }
+  .status[data-state="live"] .dot { background: var(--accent-2); box-shadow: 0 0 0 4px rgba(87,199,185,0.15); }
+  .status[data-state="error"] .dot { background: var(--error); }
+  main { padding: 1.5rem 2rem 4rem; max-width: 1280px; margin: 0 auto; }
+  .stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 1.1rem;
+    flex: 1;
+  }
+  .stat .label {
+    color: var(--muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.25rem;
+  }
+  .stat .value {
+    font-size: 1.6rem;
+    font-weight: 600;
+  }
+  pre {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    overflow: auto;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text);
+    margin: 0;
+  }
+  .error {
+    background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.3);
+    color: var(--error);
+    border-radius: 10px;
+    padding: 1rem;
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+  }
+  .placeholder-note {
+    background: var(--panel-2);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 1.1rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>katajs <span class="badge">devtools (preview)</span></h1>
+  </div>
+  <div class="status" id="status" data-state="connecting">
+    <span class="dot"></span>
+    <span class="text">connecting…</span>
+  </div>
+</header>
+<main>
+  <div class="placeholder-note">
+    This is the session-1 placeholder UI. Interactive graph canvas, drawer, routes table, and Cmd+K palette ship in the next iteration. The SSE pipe and JSON contract below are the data backbone for that work.
+  </div>
+  <div class="stats" id="stats" hidden>
+    <div class="stat"><div class="label">Modules</div><div class="value" id="stat-modules">—</div></div>
+    <div class="stat"><div class="label">Edges</div><div class="value" id="stat-edges">—</div></div>
+    <div class="stat"><div class="label">Routes</div><div class="value" id="stat-routes">—</div></div>
+  </div>
+  <div id="error-box" class="error" hidden></div>
+  <pre id="json">loading…</pre>
+</main>
+<script type="module">
+  const statusEl = document.getElementById('status');
+  const statsEl = document.getElementById('stats');
+  const jsonEl = document.getElementById('json');
+  const errorBox = document.getElementById('error-box');
+  const setStatus = (state, text) => {
+    statusEl.dataset.state = state;
+    statusEl.querySelector('.text').textContent = text;
+  };
+  const renderGraph = (data) => {
+    errorBox.hidden = true;
+    statsEl.hidden = false;
+    document.getElementById('stat-modules').textContent = data.modules.length;
+    document.getElementById('stat-edges').textContent = data.edges.length;
+    document.getElementById('stat-routes').textContent = data.routes.length;
+    jsonEl.textContent = JSON.stringify(data, null, 2);
+  };
+  const renderError = (msg) => {
+    errorBox.hidden = false;
+    errorBox.textContent = msg;
+    statsEl.hidden = true;
+    jsonEl.textContent = '';
+  };
+  const es = new EventSource('/api/graph.sse');
+  es.addEventListener('graph', (e) => {
+    setStatus('live', 'live');
+    try { renderGraph(JSON.parse(e.data)); } catch (err) { renderError(String(err)); }
+  });
+  es.addEventListener('error', (e) => {
+    if (e.data) {
+      try {
+        const payload = JSON.parse(e.data);
+        setStatus('error', 'load error');
+        renderError(payload.message ?? String(e.data));
+        return;
+      } catch { /* fall through */ }
+    }
+    setStatus('error', 'disconnected');
+  });
+  es.addEventListener('open', () => setStatus('live', 'live'));
+</script>
+</body>
+</html>

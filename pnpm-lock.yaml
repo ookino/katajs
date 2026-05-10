@@ -156,6 +156,37 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
 
+  packages/devtools:
+    dependencies:
+      '@katajs/core':
+        specifier: workspace:*
+        version: link:../core
+      cac:
+        specifier: ^6.7.14
+        version: 6.7.14
+      chokidar:
+        specifier: ^4.0.1
+        version: 4.0.3
+      kolorist:
+        specifier: ^1.8.0
+        version: 1.8.0
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.17
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(postcss@8.5.14)(tsx@4.21.0)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.5
+        version: 2.1.9(@types/node@22.19.17)
+
   packages/drizzle:
     devDependencies:
       '@katajs/core':

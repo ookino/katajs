@@ -1,0 +1,53 @@
+{
+  "name": "@katajs/devtools",
+  "version": "0.1.0",
+  "description": "Interactive devtools for katajs apps — graph, routes, container introspection.",
+  "keywords": [
+    "katajs",
+    "devtools",
+    "graph",
+    "hono",
+    "cloudflare",
+    "workers"
+  ],
+  "license": "MIT",
+  "author": "Yaseer A. Okino <yaseerokino@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ookino/katajs.git",
+    "directory": "packages/devtools"
+  },
+  "homepage": "https://github.com/ookino/katajs/tree/main/packages/devtools#readme",
+  "bugs": {
+    "url": "https://github.com/ookino/katajs/issues"
+  },
+  "type": "module",
+  "bin": {
+    "katajs-devtools": "./dist/cli.js"
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cac": "^6.7.14",
+    "chokidar": "^4.0.1",
+    "kolorist": "^1.8.0",
+    "tsx": "^4.19.2"
+  },
+  "peerDependencies": {
+    "@katajs/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
