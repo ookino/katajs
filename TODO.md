@@ -78,15 +78,19 @@ The original spec called for this in v0.1; we deferred it. Re-tackle in v0.2:
 
 The static `graph.html` (Shape A) ships now. Shape B is the Nest-Devtools-style interactive tool. Discussed architecture:
 
-- [ ] New package `@katajs/devtools` (dev dependency).
-- [ ] Stack: Vite + React + TypeScript + Tailwind + shadcn/ui + React Flow (xyflow).
-- [ ] CLI bin: `npx katajs-devtools` spawns local server on `:4242`, opens browser.
-- [ ] Loader Mode 1: imports user's `modules` tuple, calls `inspectModules()`, hands JSON to UI.
+- [x] New package `@katajs/devtools` (dev dependency).
+- [x] Stack: Vite + React + TypeScript + Tailwind + React Flow (xyflow). (Skipped shadcn — plain Tailwind keeps the bundle leaner; revisit if real component complexity shows up.)
+- [x] CLI bin: `npx katajs-devtools` spawns local server on `:4242`, opens browser.
+- [x] Loader Mode 1: imports user's `modules` tuple, calls `inspectModules()`, hands JSON to UI.
 - [ ] Loader Mode 2 (fallback): fetches from `__katajs/graph.json` debug endpoint on the user's running Wrangler dev.
-- [ ] UI panels: graph canvas, modules sidebar, drill-down detail drawer (provides/requires/routes/source-link), routes table with filtering, command palette (Cmd+K), validation schema preview.
-- [ ] No analytics, no telemetry, fully local.
-- [ ] Tag `TODO(Shape B)` references in `packages/core/src/inspect.ts` for the data-contract handoff.
-- [ ] Estimated scope: ~1 week of focused work for v0.1 of devtools.
+- [x] UI panels: graph canvas, modules sidebar, drill-down detail drawer (provides/requires/routes), routes table with filtering, command palette (Cmd+K).
+- [ ] Source-link integration (`vscode://file/...` jump-to-file from a module/service).
+- [ ] Validation schema preview (Zod schema + example values rendered in the drawer).
+- [x] No analytics, no telemetry, fully local.
+- [x] Queue producer/consumer awareness — modules render a "consumes <BINDING>" badge, sidebar has a Producers section, drawer shows `fed by producer:` backlinks for consumers and `Consumers:` lists for producers. Cmd+K palette includes Producers.
+- [ ] **Multi-Worker / monorepo support.** Today devtools loads exactly one `scripts/modules.ts` (the cwd's). In `--monorepo --worker` shape (producer in `apps/api`, consumer in `apps/worker`), the producer/consumer pair lives across two Workers and devtools can't show the cross-Worker edge. Need: `katajs-devtools --root apps/api --root apps/worker` (or auto-discover `apps/*/scripts/modules.ts`); data shape gains `workers: [{ name, cwd }]` plus a `worker` tag on every module/producer/route; UI renders Worker boundaries (React Flow `parent` nodes) and dotted cross-Worker queue edges where producer.binding matches consumer.queue. ~1 focused session.
+- [x] Tag `TODO(Shape B)` references in `packages/core/src/inspect.ts` for the data-contract handoff.
+- [x] Shipped 2026-05-10.
 
 ### 5. Concept docs — "what is katajs?"
 
