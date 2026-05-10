@@ -54,6 +54,7 @@ describe('--monorepo scaffold', () => {
       'apps/api/src/modules/posts/index.ts',
       'apps/api/src/modules/posts/posts.repository.ts',
       'apps/api/scripts/graph.ts',
+      'apps/api/scripts/modules.ts',
     ]) {
       expect(existsSync(join(projectDir, f)), `missing ${f}`).toBe(true);
     }

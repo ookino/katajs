@@ -291,10 +291,10 @@ function augmentForAuth(targetDir: string, _tokens: Tokens): void {
     }
   }
 
-  // Add authModule to the graph script's modules list.
-  const graphScript = join(targetDir, 'scripts', 'graph.ts');
-  if (existsSync(graphScript)) {
-    let g = readFileSync(graphScript, 'utf8');
+  // Add authModule to the modules registry script (powers `pnpm graph` and devtools).
+  const modulesScript = join(targetDir, 'scripts', 'modules.ts');
+  if (existsSync(modulesScript)) {
+    let g = readFileSync(modulesScript, 'utf8');
     if (!g.includes("'../src/modules/auth/index'")) {
       g = insertBeforeAnchor(
         g,
@@ -302,7 +302,7 @@ function augmentForAuth(targetDir: string, _tokens: Tokens): void {
         "import { authModule } from '../src/modules/auth/index';",
       );
       g = insertBeforeAnchor(g, 'graph-modules', 'authModule,');
-      writeFileSync(graphScript, g);
+      writeFileSync(modulesScript, g);
     }
   }
 
@@ -379,9 +379,9 @@ function augmentForAuthMonorepo(targetDir: string, tokens: Tokens): void {
     }
   }
 
-  const graphScript = join(targetDir, 'apps', 'api', 'scripts', 'graph.ts');
-  if (existsSync(graphScript)) {
-    let g = readFileSync(graphScript, 'utf8');
+  const modulesScript = join(targetDir, 'apps', 'api', 'scripts', 'modules.ts');
+  if (existsSync(modulesScript)) {
+    let g = readFileSync(modulesScript, 'utf8');
     if (!g.includes("'../src/modules/auth/index'")) {
       g = insertBeforeAnchor(
         g,
@@ -389,7 +389,7 @@ function augmentForAuthMonorepo(targetDir: string, tokens: Tokens): void {
         "import { authModule } from '../src/modules/auth/index';",
       );
       g = insertBeforeAnchor(g, 'graph-modules', 'authModule,');
-      writeFileSync(graphScript, g);
+      writeFileSync(modulesScript, g);
     }
   }
 

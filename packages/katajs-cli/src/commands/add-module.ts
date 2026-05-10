@@ -86,11 +86,19 @@ export async function addModule(opts: AddModuleOptions): Promise<void> {
       ].join('\n'),
   });
 
-  // 3. Optional: graph script.
+  // 3. Optional: modules registry script (powers `pnpm graph` and katajs-devtools).
+  // Prefer scripts/modules.ts (the new convention); fall back to scripts/graph.ts
+  // for projects that haven't run `katajs upgrade` yet.
+  const modulesScript = join(project.root, 'scripts', 'modules.ts');
   const graphScript = join(project.root, 'scripts', 'graph.ts');
-  if (existsSync(graphScript)) {
+  const registryFile = existsSync(modulesScript)
+    ? modulesScript
+    : existsSync(graphScript)
+      ? graphScript
+      : null;
+  if (registryFile) {
     applyMutation({
-      file: graphScript,
+      file: registryFile,
       fn: (content) => {
         const c1 = insertBeforeAnchor(
           content,
@@ -102,7 +110,7 @@ export async function addModule(opts: AddModuleOptions): Promise<void> {
       onFallback: (msg) => fallbacks.push(msg),
       snippet: () =>
         [
-          `// In ${graphScript}:`,
+          `// In ${registryFile}:`,
           `import { ${casings.camel}Module } from '../src/modules/${casings.kebab}/index';`,
           `// Add to the modules array:`,
           `${casings.camel}Module,`,

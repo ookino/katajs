@@ -3,13 +3,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectModules } from '@katajs/core';
 
-import { postsModule } from '../src/modules/posts/index';
-// katajs:graph-imports
-
-const modules = [
-  postsModule,
-  // katajs:graph-modules
-];
+import { modules } from './modules';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = resolve(here, '..', 'graph.html');
