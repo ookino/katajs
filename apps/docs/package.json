@@ -1,0 +1,40 @@
+{
+  "name": "@katajs/docs-site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "fumadocs-mdx && tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "^1.169.2",
+    "@tanstack/react-start": "^1.167.65",
+    "debug": "^4.4.3",
+    "extend": "^3.0.2",
+    "fumadocs-core": "^16.0.0",
+    "fumadocs-mdx": "^15.0.0",
+    "fumadocs-ui": "^16.0.0",
+    "lucide-react": "^0.460.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "style-to-js": "^1.1.21",
+    "style-to-object": "^1.0.14",
+    "tailwind-merge": "^2.5.5",
+    "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.6.3",
+    "vite-tsconfig-paths": "^6.1.1"
+  }
+}

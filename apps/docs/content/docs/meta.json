@@ -1,0 +1,18 @@
+{
+  "title": "Docs",
+  "pages": [
+    "index",
+    "intro",
+    "modules",
+    "container",
+    "registry",
+    "routes",
+    "validation",
+    "errors",
+    "transactions",
+    "testing",
+    "queues",
+    "devtools",
+    "architecture"
+  ]
+}

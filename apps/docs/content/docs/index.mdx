@@ -1,0 +1,32 @@
+---
+title: Welcome
+description: An opinionated Hono framework for Cloudflare Workers.
+---
+
+**katajs** is a small, opinionated framework that sits on top of [Hono](https://hono.dev) and Cloudflare Workers. It gives you a request-scoped DI container, type-safe modules with `provides`/`requires`, transactional services via Drizzle, queue producers and consumers as first-class concepts, and a static module-graph inspector — without adding much weight on top of Hono.
+
+## Start here
+
+- **[Intro](/docs/intro)** — what katajs is, what it isn't, who it's for.
+- **[Modules](/docs/modules)** — the unit of organization: `provides`, `requires`, routed vs services-only.
+- **[Container](/docs/container)** — request-scoped DI, lazy resolution, no global singletons.
+- **[Devtools](/docs/devtools)** — `inspectModules()` for static graphs and `katajs-devtools` for the live UI.
+
+## What you'll write
+
+```ts
+import { defineModule } from '@katajs/core';
+
+export const postsModule = defineModule({
+  name: 'posts',
+  prefix: '/posts',
+  provides: {
+    postRepository: (c) => makePostRepository(c.db),
+    postService: (c) => makePostService(c),
+  },
+  requires: ['auditService'] as const,
+  routes: postsRoutes,
+});
+```
+
+Then `createApp({ modules: [eventsModule, auditModule, postsModule] })` wires the container, validates the dependency graph at boot, and gives you a Hono app you can deploy.
