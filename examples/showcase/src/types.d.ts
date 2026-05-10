@@ -3,12 +3,13 @@
  * tsconfig's `include` glob — no runtime import needed.
  */
 import type { DrizzleClient } from '@katajs/drizzle';
+import type { TypedQueue } from '@katajs/core';
 import type * as schema from './db/schema';
 import type { Bindings } from './app';
 
 import type { PostsRegistry } from './modules/posts/index';
 import type { EventsRegistry } from './modules/events/index';
-import type { AuditRegistry } from './modules/audit/index';
+import type { AuditRegistry, AuditEvent } from './modules/audit/index';
 import type { UsersRegistry } from './modules/users/index';
 import type { CommentsRegistry } from './modules/comments/index';
 // katajs:registry-imports
@@ -24,4 +25,9 @@ declare module '@katajs/core' {
     , CommentsRegistry
     // katajs:registry
   {}
+
+  interface QueuesRegistry {
+    auditEvents: TypedQueue<AuditEvent>;
+    // katajs:queues-registry
+  }
 }

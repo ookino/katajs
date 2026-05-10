@@ -4,13 +4,16 @@ import * as schema from './db/schema';
 
 import { postsModule } from './modules/posts/index';
 import { eventsModule } from './modules/events/index';
-import { auditModule } from './modules/audit/index';
+import { auditModule, AuditEventSchema } from './modules/audit/index';
 import { usersModule } from './modules/users/index';
 import { commentsModule } from './modules/comments/index';
 // katajs:module-imports
 
 export type Bindings = {
   HYPERDRIVE: Hyperdrive;
+  /** Producer + consumer queue for fire-and-forget audit logging. */
+  AUDIT_QUEUE: Queue<unknown>;
+  AUDIT_DLQ: Queue<unknown>;
 };
 
 export type AppEnv = {
@@ -34,6 +37,14 @@ const { app, queue } = createApp({
     commentsModule,
     // katajs:modules
   ],
+  // Producer manifest: `c.var.queues.auditEvents.send({ ... })` is typed
+  // against AuditEventSchema and validated synchronously before delegating
+  // to env.AUDIT_QUEUE.send(...). The `audit` module on the consumer side
+  // shares the same schema for end-to-end type safety.
+  queues: {
+    auditEvents: { binding: 'AUDIT_QUEUE', schema: AuditEventSchema },
+    // katajs:queues
+  },
   middleware: [
     async (_c, next) => {
       // Demo middleware slot — real apps put auth, request logging, etc. here.
