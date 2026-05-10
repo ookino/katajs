@@ -39,16 +39,27 @@ function send(res: ServerResponse, status: number, body: string | Buffer, conten
   res.end(body);
 }
 
-function jsonOf(insp: LoadResult['inspection']): string {
-  return JSON.stringify(
-    {
-      modules: insp.modules,
-      edges: insp.edges,
-      routes: insp.routes,
-    },
-    null,
-    2,
-  );
+function payloadOf(insp: LoadResult['inspection']): {
+  modules: LoadResult['inspection']['modules'];
+  edges: LoadResult['inspection']['edges'];
+  routes: LoadResult['inspection']['routes'];
+} {
+  return { modules: insp.modules, edges: insp.edges, routes: insp.routes };
+}
+
+/** Pretty-printed for human inspection at /api/graph.json. */
+function jsonPretty(insp: LoadResult['inspection']): string {
+  return JSON.stringify(payloadOf(insp), null, 2);
+}
+
+/**
+ * Compact (single-line) JSON for SSE. SSE treats `\n` as a field separator —
+ * pretty-printed JSON would be parsed as multiple `data:` fields and produce
+ * an invalid payload on the client. See:
+ * https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream
+ */
+function jsonCompact(insp: LoadResult['inspection']): string {
+  return JSON.stringify(payloadOf(insp));
 }
 
 export async function startServer(options: ServerOptions): Promise<{
@@ -64,7 +75,7 @@ export async function startServer(options: ServerOptions): Promise<{
     try {
       lastResult = await loadInspection({ cwd: options.cwd, modulesFile: options.modulesFile });
       lastError = null;
-      const payload = jsonOf(lastResult.inspection);
+      const payload = jsonCompact(lastResult.inspection);
       for (const c of sseClients) {
         c.res.write(`event: graph\ndata: ${payload}\n\n`);
       }
@@ -117,7 +128,7 @@ export async function startServer(options: ServerOptions): Promise<{
         send(res, 503, JSON.stringify({ error: 'graph not loaded yet' }), 'application/json; charset=utf-8');
         return;
       }
-      send(res, 200, jsonOf(lastResult.inspection), 'application/json; charset=utf-8');
+      send(res, 200, jsonPretty(lastResult.inspection), 'application/json; charset=utf-8');
       return;
     }
 
@@ -132,7 +143,7 @@ export async function startServer(options: ServerOptions): Promise<{
       sseClients.add(client);
       res.write(`: connected\n\n`);
       if (lastResult) {
-        res.write(`event: graph\ndata: ${jsonOf(lastResult.inspection)}\n\n`);
+        res.write(`event: graph\ndata: ${jsonCompact(lastResult.inspection)}\n\n`);
       } else if (lastError) {
         res.write(`event: error\ndata: ${JSON.stringify({ message: lastError.message })}\n\n`);
       }
