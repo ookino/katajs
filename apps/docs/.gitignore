@@ -17,3 +17,8 @@ node_modules
 
 .source
 source.generated.ts
+
+# Cloudflare / Wrangler
+.wrangler
+worker-configuration.d.ts
+dist

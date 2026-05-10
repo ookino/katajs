@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
+import { cloudflare } from '@cloudflare/vite-plugin';
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
@@ -16,6 +17,9 @@ export default defineConfig({
     // pointing at unbuilt packages) that the plugin can't parse — we only
     // care about apps/docs's own paths, so silence those warnings.
     tsconfigPaths({ projects: ['./tsconfig.json'], ignoreConfigErrors: true }),
+    // Cloudflare Workers (official partner) plugin must come before
+    // tanstackStart so the SSR environment is configured correctly.
+    cloudflare({ viteEnvironment: { name: 'ssr' } }),
     mdx(collections),
     tailwindcss(),
     tanstackStart({
