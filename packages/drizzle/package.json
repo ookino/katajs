@@ -48,13 +48,12 @@
   "peerDependencies": {
     "@katajs/core": "workspace:^",
     "drizzle-orm": ">=0.36.0",
-    "pg": "^8.13.0"
+    "postgres": "^3.4.0"
   },
   "devDependencies": {
-    "@types/pg": "^8.15.0",
     "@katajs/core": "workspace:*",
     "drizzle-orm": "^0.45.0",
-    "pg": "^8.16.0",
+    "postgres": "^3.4.0",
     "tsup": "^8.3.5",
     "typescript": "^5.7.0",
     "vitest": "^2.1.5"

@@ -1,11 +1,14 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import type { DrizzleClient, DrizzleTx } from './types';
 
 /** Cloudflare Hyperdrive binding shape (per `env.HYPERDRIVE`). */
 export type HyperdriveBinding = {
   connectionString: string;
 };
+
+/** postgres.js client options — the second arg to `postgres(connectionString, ...)`. */
+export type PostgresClientOptions = Parameters<typeof postgres>[1];
 
 export type DrizzleAdapterConfig<
   TSchema extends Record<string, unknown> = Record<string, never>,
@@ -18,21 +21,33 @@ export type DrizzleAdapterConfig<
    */
   bindingName?: string;
   /**
-   * Inject a custom client factory. When provided, `bindingName` is ignored.
-   * Primarily for tests; production code should let the adapter build the pool.
+   * Extra options for `postgres(connectionString, options)`. Merged over the
+   * Workers-sensible defaults (`max: 5`, `fetch_types: false`).
+   */
+  clientOptions?: PostgresClientOptions;
+  /**
+   * Inject a custom client factory. When provided, `bindingName` and
+   * `clientOptions` are ignored. Primarily for tests; production code should
+   * let the adapter build the client.
    */
   makeClient?: (env: unknown) => DrizzleClient<TSchema>;
 };
 
 /**
- * Drizzle adapter targeting Cloudflare Hyperdrive (Postgres). Per spec §6.2
- * uses `pg` (`node-postgres`) with `nodejs_compat`.
+ * Drizzle adapter targeting Cloudflare Hyperdrive (Postgres) via postgres.js
+ * (`drizzle-orm/postgres-js`). Requires `compatibility_flags: ["nodejs_compat"]`
+ * in wrangler — postgres.js opens a TCP connection through Hyperdrive.
  *
  *   const { app } = createApp({
  *     bindings: {} as Bindings,
  *     db: drizzleAdapter({ schema }),
  *     modules: [...],
  *   });
+ *
+ * Defaults follow Cloudflare's Hyperdrive guidance: a small local pool
+ * (`max: 5`) since Hyperdrive does its own pooling, and `fetch_types: false`
+ * to skip the type-OID round trip on connect (Drizzle infers column types
+ * from your schema, so it doesn't need postgres.js's runtime type catalog).
  */
 export function drizzleAdapter<
   TSchema extends Record<string, unknown> = Record<string, never>,
@@ -54,8 +69,12 @@ export function drizzleAdapter<
         );
       }
 
-      const pool = new Pool({ connectionString: binding.connectionString });
-      return drizzle(pool, { schema: config.schema }) as DrizzleClient<TSchema>;
+      const client = postgres(binding.connectionString, {
+        max: 5,
+        fetch_types: false,
+        ...config.clientOptions,
+      });
+      return drizzle(client, { schema: config.schema }) as DrizzleClient<TSchema>;
     },
 
     /**

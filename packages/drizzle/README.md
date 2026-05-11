@@ -1,10 +1,12 @@
 # @katajs/drizzle
 
-Drizzle adapter for [katajs](https://github.com/ookino/katajs) — wires [Drizzle ORM](https://orm.drizzle.team) to [Cloudflare Hyperdrive](https://developers.cloudflare.com/hyperdrive/) for Postgres.
+Drizzle adapter for [Kata](https://github.com/ookino/katajs) — wires [Drizzle ORM](https://orm.drizzle.team) to [Cloudflare Hyperdrive](https://developers.cloudflare.com/hyperdrive/) for Postgres, via [postgres.js](https://github.com/porsager/postgres) (`drizzle-orm/postgres-js`).
 
 ```bash
-pnpm add @katajs/drizzle drizzle-orm pg
+pnpm add @katajs/drizzle drizzle-orm postgres
 ```
+
+Requires `compatibility_flags: ["nodejs_compat"]` in `wrangler.jsonc` — postgres.js opens a TCP connection through Hyperdrive.
 
 ## Usage
 
@@ -24,7 +26,13 @@ const { app } = createApp({
 });
 ```
 
-`drizzleAdapter` returns a `DbAdapter` that katajs's container middleware uses to construct a per-request `db` client backed by `env.HYPERDRIVE.connectionString`.
+`drizzleAdapter` returns a `DbAdapter` that Kata's container middleware uses to construct a per-request `db` client backed by `env.HYPERDRIVE.connectionString`. By default it builds the postgres.js client with Cloudflare's recommended Hyperdrive settings — a small local pool (`max: 5`, since Hyperdrive does its own pooling) and `fetch_types: false` (skips the type-OID round trip; Drizzle infers column types from your schema). Pass `clientOptions` to override:
+
+```ts
+db: drizzleAdapter({ schema, clientOptions: { max: 10, idle_timeout: 20 } }),
+```
+
+For tests, pass `makeClient` to inject a fake client and skip the binding lookup entirely.
 
 ## Transactions
 
@@ -51,6 +59,7 @@ export type {
   DrizzleClientOrTx,
   DrizzleTx,
   HyperdriveBinding,
+  PostgresClientOptions,
 } from '@katajs/drizzle';
 ```
 

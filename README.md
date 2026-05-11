@@ -147,7 +147,7 @@ What it's **not for**:
 | HTTP server | [Hono](https://hono.dev) | Plumbed into module routes, RPC types preserved end-to-end |
 | Validation | [Zod](https://zod.dev) + [@hono/zod-validator](https://github.com/honojs/middleware/tree/main/packages/zod-validator) | `validate()` wrapper that throws typed errors |
 | ORM | [Drizzle ORM](https://orm.drizzle.team) | `withTransaction` wires tx-bound services through the container |
-| Postgres pool | [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) + [pg](https://node-postgres.com) | Adapter is one config call |
+| Postgres client | [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) + [postgres.js](https://github.com/porsager/postgres) | Adapter is one config call (`drizzle-orm/postgres-js`) |
 | Async messaging | [Cloudflare Queues](https://developers.cloudflare.com/queues/) | Consumer-on-module, producer-on-app, schemas shared by import |
 | Bundler | [tsup](https://tsup.egoist.dev) | n/a |
 | Tests | [Vitest](https://vitest.dev) | n/a |

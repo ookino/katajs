@@ -260,7 +260,7 @@ Per-message: each message gets its own container.
 
 - `c.requestId` is the message's `id` — propagate through logs for correlation.
 - `c.env` is the Cloudflare env (same as HTTP).
-- `c.db` is a fresh DB client (fresh `pg.Pool` per message, since Workers don't persist state across invocations).
+- `c.db` is a fresh DB client (fresh postgres.js client per message, since Workers don't persist state across invocations).
 - `c.resolve(key)` works the same as in HTTP.
 - `c.withTransaction(fn)` works — wrap multi-write message handlers in a transaction.
 
