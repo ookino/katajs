@@ -11,11 +11,21 @@ const targetByLabel: Record<Source, 'json' | 'query' | 'param'> = {
   param: 'param',
 };
 
+/**
+ * Common shape of a Zod validation failure across zod 3 and zod 4 (`$ZodError`
+ * in v4). Typed structurally so the hook accepts whatever the
+ * `@hono/zod-validator` `Hook` discriminated union passes — without pinning a
+ * concrete `ZodError` class, which differs between the major versions.
+ */
+type HookResult = {
+  success: boolean;
+  error?: {
+    issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string }>;
+  };
+};
+
 function makeHook(label: Source) {
-  return (
-    result: { success: boolean; error?: import('zod').ZodError },
-    _c: Context,
-  ) => {
+  return (result: HookResult, _c: Context) => {
     if (!result.success && result.error) {
       const issues = result.error.issues.map((i) => ({
         path: [label, ...i.path] as (string | number)[],

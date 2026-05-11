@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
 export const CreateUserSchema = z.object({
-  email: z.string().email(),
+  email: z.email(),
   displayName: z.string().min(1).max(100),
 });
 export type CreateUserInput = z.infer<typeof CreateUserSchema>;
 
 export const UserIdParam = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 export type UserIdParamInput = z.infer<typeof UserIdParam>;
 

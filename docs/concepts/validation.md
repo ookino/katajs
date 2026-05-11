@@ -15,7 +15,7 @@ const CreatePostSchema = z.object({
 });
 
 const PostIdParam = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 
 export const postsRoutes = new Hono<AppEnv>()
@@ -151,7 +151,7 @@ export const CreatePostSchema = z.object({
 export type CreatePostInput = z.infer<typeof CreatePostSchema>;
 
 export const PostIdParam = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 export type PostIdParamInput = z.infer<typeof PostIdParam>;
 ```
@@ -184,7 +184,7 @@ You can also call `validate({...})` outside a route handler — e.g., in a custo
 import { defineMiddleware } from '@katajs/core';
 
 const HeaderSchema = z.object({
-  'x-tenant-id': z.string().uuid(),
+  'x-tenant-id': z.uuid(),
 });
 
 export const requireTenant = defineMiddleware(async (c, next) => {

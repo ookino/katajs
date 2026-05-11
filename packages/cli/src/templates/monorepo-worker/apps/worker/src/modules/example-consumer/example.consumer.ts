@@ -8,7 +8,7 @@ import { defineConsumer } from '@katajs/core';
  * package (e.g. `packages/events/`) and import from there.
  */
 export const ExampleEventSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   payload: z.unknown(),
 });
 export type ExampleEvent = z.infer<typeof ExampleEventSchema>;

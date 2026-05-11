@@ -104,7 +104,7 @@ importers:
     dependencies:
       '@hono/zod-validator':
         specifier: ^0.8.0
-        version: 0.8.0(hono@4.12.17)(zod@3.25.76)
+        version: 0.8.0(hono@4.12.17)(zod@4.4.3)
       '@katajs/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -121,8 +121,8 @@ importers:
         specifier: ^8.16.0
         version: 8.20.0
       zod:
-        specifier: ^3.25.0
-        version: 3.25.76
+        specifier: ^4.0.0
+        version: 4.4.3
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20260507.1
@@ -144,7 +144,7 @@ importers:
     dependencies:
       '@hono/zod-validator':
         specifier: ^0.8.0
-        version: 0.8.0(hono@4.12.17)(zod@3.25.76)
+        version: 0.8.0(hono@4.12.17)(zod@4.4.3)
       '@katajs/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -161,8 +161,8 @@ importers:
         specifier: ^8.16.0
         version: 8.20.0
       zod:
-        specifier: ^3.25.0
-        version: 3.25.76
+        specifier: ^4.0.0
+        version: 4.4.3
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^4.20260507.1
@@ -215,7 +215,7 @@ importers:
     devDependencies:
       '@hono/zod-validator':
         specifier: ^0.8.0
-        version: 0.8.0(hono@4.12.17)(zod@3.25.76)
+        version: 0.8.0(hono@4.12.17)(zod@4.4.3)
       expect-type:
         specifier: ^1.1.0
         version: 1.3.0
@@ -232,8 +232,8 @@ importers:
         specifier: ^2.1.5
         version: 2.1.9(@types/node@22.19.17)(lightningcss@1.32.0)
       zod:
-        specifier: ^3.25.0
-        version: 3.25.76
+        specifier: ^4.0.0
+        version: 4.4.3
 
   packages/devtools:
     dependencies:
@@ -5599,10 +5599,10 @@ snapshots:
       '@tailwindcss/oxide': 4.3.0
       tailwindcss: 4.3.0
 
-  '@hono/zod-validator@0.8.0(hono@4.12.17)(zod@3.25.76)':
+  '@hono/zod-validator@0.8.0(hono@4.12.17)(zod@4.4.3)':
     dependencies:
       hono: 4.12.17
-      zod: 3.25.76
+      zod: 4.4.3
 
   '@img/colour@1.1.0': {}
 

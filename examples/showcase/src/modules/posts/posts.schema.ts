@@ -8,7 +8,7 @@ export const CreatePostSchema = z.object({
 export type CreatePostInput = z.infer<typeof CreatePostSchema>;
 
 export const PostIdParam = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 export type PostIdParamInput = z.infer<typeof PostIdParam>;
 

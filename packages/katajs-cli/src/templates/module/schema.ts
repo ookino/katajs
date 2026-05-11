@@ -9,6 +9,6 @@ import { z } from 'zod';
 //   export type Create{{Pascal}}Input = z.infer<typeof Create{{Pascal}}Schema>;
 
 export const {{Pascal}}IdParam = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 export type {{Pascal}}IdParamInput = z.infer<typeof {{Pascal}}IdParam>;

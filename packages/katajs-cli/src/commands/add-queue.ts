@@ -278,7 +278,7 @@ import { defineConsumer } from '@katajs/core';
  */
 export const ${queue.pascal}EventSchema = z.object({
   // TODO: define your message shape
-  id: z.string().uuid(),
+  id: z.uuid(),
 });
 export type ${queue.pascal}Event = z.infer<typeof ${queue.pascal}EventSchema>;
 

@@ -12,8 +12,8 @@ import { ordersRoutes } from "./orders.routes";
 import { makeOrderService, type OrderService } from "./orders.service";
 
 const OrderEventSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("order.placed"), orderId: z.string().uuid() }),
-  z.object({ type: z.literal("order.refunded"), orderId: z.string().uuid() }),
+  z.object({ type: z.literal("order.placed"), orderId: z.uuid() }),
+  z.object({ type: z.literal("order.refunded"), orderId: z.uuid() }),
 ]);
 
 export const ordersModule = defineModule({

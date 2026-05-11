@@ -12,7 +12,7 @@ import { makeAuditService, type AuditService } from './audit.service';
 export const AuditEventSchema = z.object({
   actorId: z.string(),
   action: z.string(),
-  details: z.record(z.unknown()).default({}),
+  details: z.record(z.string(), z.unknown()).default({}),
 });
 export type AuditEvent = z.infer<typeof AuditEventSchema>;
 
