@@ -161,7 +161,7 @@ The runtime itself is ~1500 lines. Most of it is the module/container contract; 
 | Package | What it is |
 |---|---|
 | [`@katajs/core`](./packages/core) | The runtime — `defineModule`, `createApp`, container, errors, validation, queue types, `inspectModules`. |
-| [`@katajs/drizzle`](./packages/drizzle) | Drizzle + Hyperdrive Postgres adapter with `withTransaction`. |
+| [`@katajs/drizzle`](./packages/drizzle) | Drizzle + Hyperdrive adapters with `withTransaction` — Postgres (`drizzleAdapter`) + MySQL (`drizzleMysqlAdapter`, subpath `/mysql`). |
 | [`@katajs/cli`](./packages/katajs-cli) | The project-mutator CLI — `katajs add module|service|route|queue`. |
 | [`@katajs/devtools`](./packages/devtools) | Live interactive module graph (`npx katajs-devtools`). |
 | [`create-katajs`](./packages/cli) | The scaffolder (`pnpm create katajs`). |

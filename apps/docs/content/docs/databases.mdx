@@ -101,6 +101,25 @@ A second `katajs add database <name>` just appends a new entry at the anchors �
 
 After running it, finish the wiring: add the new Hyperdrive binding to `wrangler.jsonc`, define real tables in the generated schema file, and point a Drizzle Kit config at it for migrations. The command prints this checklist.
 
+## Mixing dialects (Postgres + MySQL)
+
+Each entry in the `db` map is an independent adapter, so dialects are free to mix. `@katajs/drizzle` ships dialect-specific entry points so each one only pulls its own driver into the bundle:
+
+```ts
+import { drizzleAdapter } from '@katajs/drizzle';            // Postgres (postgres.js)
+import { drizzleMysqlAdapter } from '@katajs/drizzle/mysql'; // MySQL (mysql2)
+
+createApp({
+  db: {
+    main: drizzleAdapter({ schema: appSchema }),
+    legacy: drizzleMysqlAdapter({ schema: legacySchema, bindingName: 'LEGACY_HD' }),
+  },
+  modules: [/* ... */],
+});
+```
+
+The `AppDb` augmentation then mixes client types — `DrizzleClient` for the Postgres entry, `DrizzleMysqlClient` for the MySQL one. See the [`@katajs/drizzle` README](https://github.com/ookino/katajs/tree/main/packages/drizzle#multiple-databases) for the full setup, including `mysql2`'s `disableEval: true` and `connectionLimit: 5` Workers defaults.
+
 ## What multi-db does *not* do
 
 - **No cross-database transactions.** `c.withTransaction('main', fn)` wraps the `main` db; inside `fn`, `c.db.sessions` is still the plain (non-transactional) client. SQL doesn't have distributed transactions across heterogeneous connections, and Kata doesn't pretend to — if you need "write to two databases atomically", that's an outbox/saga concern in your application code.

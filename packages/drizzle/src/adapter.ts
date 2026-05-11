@@ -1,11 +1,9 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { getHyperdriveBinding } from './shared';
 import type { DrizzleClient, DrizzleTx } from './types';
 
-/** Cloudflare Hyperdrive binding shape (per `env.HYPERDRIVE`). */
-export type HyperdriveBinding = {
-  connectionString: string;
-};
+export type { HyperdriveBinding } from './shared';
 
 /** postgres.js client options — the second arg to `postgres(connectionString, ...)`. */
 export type PostgresClientOptions = Parameters<typeof postgres>[1];
@@ -44,6 +42,8 @@ export type DrizzleAdapterConfig<
  *     modules: [...],
  *   });
  *
+ * For MySQL on Hyperdrive use `drizzleMysqlAdapter` from `@katajs/drizzle/mysql`.
+ *
  * Defaults follow Cloudflare's Hyperdrive guidance: a small local pool
  * (`max: 5`) since Hyperdrive does its own pooling, and `fetch_types: false`
  * to skip the type-OID round trip on connect (Drizzle infers column types
@@ -58,18 +58,8 @@ export function drizzleAdapter<
     create(env: unknown): DrizzleClient<TSchema> {
       if (config.makeClient) return config.makeClient(env);
 
-      const binding = (env as Record<string, unknown> | null | undefined)?.[
-        bindingName
-      ] as HyperdriveBinding | undefined;
-
-      if (!binding?.connectionString) {
-        throw new Error(
-          `[katajs] Missing '${bindingName}' binding or its connectionString. ` +
-            `Add a Hyperdrive binding to wrangler.jsonc, or pass 'makeClient' for tests.`,
-        );
-      }
-
-      const client = postgres(binding.connectionString, {
+      const { connectionString } = getHyperdriveBinding(env, bindingName);
+      const client = postgres(connectionString, {
         max: 5,
         fetch_types: false,
         ...config.clientOptions,

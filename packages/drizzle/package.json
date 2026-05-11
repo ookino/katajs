@@ -1,7 +1,7 @@
 {
   "name": "@katajs/drizzle",
   "version": "0.1.0",
-  "description": "Drizzle adapter for katajs — Hyperdrive-backed Postgres on Cloudflare Workers.",
+  "description": "Drizzle adapter for katajs — Hyperdrive-backed Postgres + MySQL on Cloudflare Workers.",
   "keywords": [
     "katajs",
     "drizzle",
@@ -9,7 +9,8 @@
     "hyperdrive",
     "cloudflare",
     "workers",
-    "postgres"
+    "postgres",
+    "mysql"
   ],
   "license": "MIT",
   "author": "Yaseer A. Okino <yaseerokino@gmail.com>",
@@ -31,6 +32,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./mysql": {
+      "types": "./dist/mysql.d.ts",
+      "import": "./dist/mysql.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -48,11 +53,17 @@
   "peerDependencies": {
     "@katajs/core": "workspace:^",
     "drizzle-orm": ">=0.36.0",
-    "postgres": "^3.4.0"
+    "postgres": "^3.4.0",
+    "mysql2": "^3.11.0"
+  },
+  "peerDependenciesMeta": {
+    "postgres": { "optional": true },
+    "mysql2": { "optional": true }
   },
   "devDependencies": {
     "@katajs/core": "workspace:*",
     "drizzle-orm": "^0.45.0",
+    "mysql2": "^3.11.0",
     "postgres": "^3.4.0",
     "tsup": "^8.3.5",
     "typescript": "^5.7.0",
