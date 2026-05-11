@@ -10,6 +10,7 @@
     "validation",
     "errors",
     "transactions",
+    "databases",
     "testing",
     "queues",
     "devtools",

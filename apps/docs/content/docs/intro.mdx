@@ -53,6 +53,7 @@ The runtime is ~600 lines of TypeScript. The Drizzle adapter is ~80 lines. The C
 - **[Validation](/docs/validation)** — `validate({ body, query, param })`, how Zod errors become structured 400 responses.
 - **[Errors](/docs/errors)** — `AppError` subclasses, `errorMapper`, the response shape.
 - **[Transactions](/docs/transactions)** — `withTransaction`, repository pattern, cross-module atomicity.
+- **[Databases](/docs/databases)** — one database or many; `c.db` as a client or a named map; the `katajs add database` codemod.
 - **[Testing](/docs/testing)** — `makeTestContainer` for unit tests, real Postgres for integration tests.
 - **[Devtools](/docs/devtools)** — the static module graph (Shape A) and the live interactive devtools UI (Shape B).
 - **[Architecture](/docs/architecture)** — when to split modules, when to graduate to `--monorepo`.

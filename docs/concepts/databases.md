@@ -1,0 +1,120 @@
+# Databases
+
+Most apps talk to one database. Some talk to several — a Hyperdrive-backed Postgres for the domain model plus, say, a separate Postgres for sessions or analytics. Kata handles both shapes with the same `createApp({ db })` option: pass a single adapter for the common case, or a named map when you have more than one.
+
+## One database (the default)
+
+```ts
+// src/app.ts
+import { createApp } from '@katajs/core';
+import { drizzleAdapter } from '@katajs/drizzle';
+import * as schema from './db/schema';
+
+const { app } = createApp({
+  db: drizzleAdapter({ schema }),
+  modules: [/* ... */],
+});
+```
+
+```ts
+// src/types.d.ts
+import type { DrizzleClient } from '@katajs/drizzle';
+import type * as schema from './db/schema';
+
+declare module '@katajs/core' {
+  interface AppDb extends DrizzleClient<typeof schema> {}
+}
+```
+
+Then `c.db` is the Drizzle client directly — `c.db.query.posts.findFirst(...)`, `c.db.insert(...)`, etc. — and `c.withTransaction(fn)` runs `fn` inside a transaction on it. This is exactly what the scaffolder produces; nothing about it changes when you have one database.
+
+## Multiple databases
+
+Pass a map of named adapters instead:
+
+```ts
+// src/app.ts
+import { createApp } from '@katajs/core';
+import { drizzleAdapter } from '@katajs/drizzle';
+import * as schema from './db/schema';
+import * as sessionsSchema from './db/sessions-schema';
+
+const { app } = createApp({
+  db: {
+    main: drizzleAdapter({ schema }),
+    sessions: drizzleAdapter({ schema: sessionsSchema, bindingName: 'SESSIONS_HD' }),
+  },
+  modules: [/* ... */],
+});
+```
+
+```ts
+// src/types.d.ts
+import type { DrizzleClient } from '@katajs/drizzle';
+import type * as schema from './db/schema';
+import type * as sessionsSchema from './db/sessions-schema';
+
+declare module '@katajs/core' {
+  interface AppDb {
+    main: DrizzleClient<typeof schema>;
+    sessions: DrizzleClient<typeof sessionsSchema>;
+  }
+}
+```
+
+Now `c.db.main` and `c.db.sessions` are the respective clients (each typed against its own schema), and transactions take the db name:
+
+```ts
+await c.withTransaction('main', async (tx) => {
+  const repo = tx.resolve('postRepository'); // bound to the `main` tx
+  await repo.insert(input);
+});
+```
+
+You pick the names — `main`, `sessions`, `analytics`, whatever fits your domain. There's no framework-imposed `primary` key; `c.db.main` is just a name you chose.
+
+> **`AppDb` must match the shape you pass.** Single adapter → augment `AppDb` to the client type. Map of adapters → augment `AppDb` to a map of client types. The two are mutually exclusive — `c.db` is a client *or* a map, never both.
+
+## Growing from one database to many
+
+Switching a project that already uses `c.db` everywhere into a multi-db one is a mechanical rewrite — so the CLI does it:
+
+```bash
+katajs add database analytics
+```
+
+That command:
+
+- scaffolds `src/db/analytics-schema.ts` (a Drizzle stub to fill in);
+- in `src/app.ts`: adds the schema import, adds an `ANALYTICS_HD: Hyperdrive` entry to the `Bindings` type, and converts `db: drizzleAdapter({ schema })` into `db: { main: drizzleAdapter({ schema }), analytics: drizzleAdapter({ schema: analyticsSchema, bindingName: 'ANALYTICS_HD' }) }` (with a `// katajs:databases` anchor for the next time);
+- in `src/types.d.ts`: adds the matching `import type` and rewrites the `AppDb` augmentation to the map shape (with a `// katajs:databases-registry` anchor);
+- rewrites `c.db` → `c.db.main`, `c.var.db` → `c.var.db.main`, and `c.withTransaction(fn)` → `c.withTransaction('main', fn)` across `src/modules/**` and `src/app.ts`.
+
+The rewrite is regex-based with word-boundary guards (so `abc.db` / `someDb` / `account.db` aren't touched) and is idempotent (it won't turn `c.db.main` into `c.db.main.main`), but it's still worth reviewing the diff — e.g. if a `withTransaction` callback names its parameter something and references `<param>.db` directly, you'll want to fix that by hand. Pass `--no-rewrite` to skip the module rewrite and do it yourself.
+
+A second `katajs add database <name>` just appends a new entry at the anchors — no module rewrite, since the modules already say `c.db.main`.
+
+After running it, finish the wiring: add the new Hyperdrive binding to `wrangler.jsonc`, define real tables in the generated schema file, and point a Drizzle Kit config at it for migrations. The command prints this checklist.
+
+## What multi-db does *not* do
+
+- **No cross-database transactions.** `c.withTransaction('main', fn)` wraps the `main` db; inside `fn`, `c.db.sessions` is still the plain (non-transactional) client. SQL doesn't have distributed transactions across heterogeneous connections, and Kata doesn't pretend to — if you need "write to two databases atomically", that's an outbox/saga concern in your application code.
+- **No shared schema or migrations.** Each adapter has its own schema and its own `drizzle-kit generate` / `migrate` run. They're separate databases.
+- **The transactional-sub-container magic still applies per-db.** `c.withTransaction('main', fn)` rebuilds the sub-container so anything that resolves `c.db.main` (a repository, say) gets the transaction handle — same as the single-db case, scoped to the named db. Other dbs in the map are unchanged inside `fn`.
+
+## When to use a map vs a service
+
+The named map is the right answer when you want a database to be a first-class part of the app — typed on `c.db`, available to repositories, eligible for `withTransaction`. If you have a peripheral connection you just need to read/write occasionally (a read replica for a dashboard, say), you can also just wire it as a regular container service:
+
+```ts
+provides: {
+  reportsDb: (c) => drizzle(postgres(c.env.REPORTS_HD.connectionString), { schema: reportsSchema }),
+}
+```
+
+`c.resolve('reportsDb')` then gives you the client. It won't get `withTransaction` integration, but for a side connection that's usually fine. Reach for the `db` map when the database is core to the app; reach for a service when it's incidental.
+
+## Related
+
+- [Transactions](./transactions.md) — `withTransaction`, the repository pattern, how the sub-container rebuild works (and how the db name slots into it for multi-db apps).
+- [Container](./container.md) — `c.db`, `c.resolve`, request-scoped lifetimes.

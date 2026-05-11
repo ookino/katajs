@@ -161,9 +161,13 @@ Unit tests with `makeTestContainer` typically mock the database adapter, in whic
 
 See [Testing](./testing.md) for the full pattern.
 
+## Multiple databases
+
+In an app with more than one database (see [Databases](./databases.md)), `withTransaction` takes the db name: `c.withTransaction('main', async (tx) => { ... })`. The sub-container rebuild is scoped to that db — repositories that resolve `c.db.main` get the transaction handle; other dbs in the map are untouched inside the callback. There are no cross-database transactions.
+
 ## Summary
 
-- `c.withTransaction(async (tx) => { ... })` runs the callback inside a transaction.
+- `c.withTransaction(async (tx) => { ... })` runs the callback inside a transaction (single-db apps); `c.withTransaction(name, async (tx) => { ... })` for a named db (multi-db apps).
 - Resolve repositories from `tx` to bind them to the transaction.
 - Cross-module writes are atomic as long as every module follows the repository pattern.
 - Nested calls reuse the outer transaction (no savepoints in v0.1).

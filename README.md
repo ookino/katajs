@@ -180,6 +180,7 @@ The full doc set lives in [`apps/docs`](./apps/docs) (Fumadocs on TanStack Start
 - [Validation](./docs/concepts/validation.md) — Zod + `validate()` at boundaries
 - [Errors](./docs/concepts/errors.md) — `AppError`, `errorMapper`, response shape
 - [Transactions](./docs/concepts/transactions.md) — `withTransaction`, repository pattern
+- [Databases](./docs/concepts/databases.md) — one DB or many; `c.db` as a client or a named map; `katajs add database`
 - [Testing](./docs/concepts/testing.md) — unit tests + integration tests
 - [Queues](./docs/concepts/queues.md) — consumer-on-module, producer-on-app
 - [Devtools](./docs/concepts/devtools.md) — `inspectModules()`, the graph script, the live UI
