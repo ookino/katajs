@@ -70,7 +70,12 @@ export function makeTestContainer(opts: TestContainerOptions = {}): RequestConta
     return services[key];
   }) as RequestContainer['resolve'];
 
-  const withTransaction = (async <T>(fn: (tx: RequestContainer) => Promise<T>): Promise<T> => {
+  // Accepts both `withTransaction(fn)` and `withTransaction(name, fn)` —
+  // the db name (multi-db apps) is ignored here; tests assert on the fn path.
+  const withTransaction = (async (...callArgs: unknown[]): Promise<unknown> => {
+    const fn = (typeof callArgs[0] === 'string' ? callArgs[1] : callArgs[0]) as (
+      tx: RequestContainer,
+    ) => Promise<unknown>;
     if (opts.runTransaction) return opts.runTransaction(fn);
     return fn(container);
   }) as RequestContainer['withTransaction'];

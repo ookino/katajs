@@ -1,8 +1,8 @@
 import type { MiddlewareHandler } from 'hono';
 import { buildContainer } from './container';
+import { buildDbBundle, type DbAdapter } from './db';
 import { buildTypedQueues } from './queues-producer';
 import type {
-  AppDb,
   ProvidesMap,
   QueueDeclaration,
   QueuesRegistry,
@@ -26,26 +26,12 @@ export type RequestVariables = {
   queues: QueuesRegistry;
 };
 
-/**
- * Adapter contract for the database layer. `create` is called once per request
- * to produce the per-request client; `runTransaction` (optional) runs a callback
- * inside a transaction with a transaction-bound client (`txDb`).
- *
- * The `db` and `txDb` types are intentionally loose (`any`) at the adapter
- * boundary because, e.g., Drizzle's `DrizzleClient` and `DrizzleTx` are
- * different types with the same query API. User code should rely on the
- * augmented `AppDb` interface to type `c.db`, treating the client and tx as
- * interchangeable for repository code (per spec §6.4).
- */
-export type DbAdapter = {
-  create(env: unknown): unknown;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  runTransaction?<T>(db: any, fn: (txDb: any) => Promise<T>): Promise<T>;
-};
+export type { DbAdapter };
 
 export type ContainerMiddlewareConfig = {
   registry: ReadonlyMap<string, ServiceFactory<unknown>>;
-  db: DbAdapter;
+  /** A single DB adapter, or a map of named adapters for multi-database apps. */
+  db: DbAdapter | Record<string, DbAdapter>;
   /** Override `crypto.randomUUID` for deterministic tests. */
   generateRequestId?: () => string;
   /** Producer manifest. Each entry becomes a typed queue on `c.var.queues`. */
@@ -64,7 +50,7 @@ export function containerMiddleware(config: ContainerMiddlewareConfig): Middlewa
       ? config.generateRequestId()
       : crypto.randomUUID();
 
-    const db = config.db.create(c.env) as AppDb;
+    const db = buildDbBundle(config.db, c.env);
 
     const container = buildContainer({
       env: c.env,
@@ -72,7 +58,6 @@ export function containerMiddleware(config: ContainerMiddlewareConfig): Middlewa
       requestId,
       db,
       registry: config.registry,
-      runTransaction: config.db.runTransaction,
       inTransaction: false,
     });
 

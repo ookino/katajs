@@ -18,7 +18,28 @@ export interface Registry {}
 /** Bindings shape (Cloudflare env). Augment via module declaration to type `c.env`. */
 export interface AppEnv {}
 
-/** Drizzle (or compatible) client shape. Augment via module declaration to type `c.db`. */
+/**
+ * Shape of `c.db`. Augment via module declaration to type the database layer.
+ *
+ * Single database (the common case): `AppDb` is the client type, so `c.db`
+ * has the full Drizzle query API directly.
+ *
+ *   declare module '@katajs/core' {
+ *     interface AppDb extends DrizzleClient<typeof schema> {}
+ *   }
+ *
+ * Multiple databases: `AppDb` is a map of name → client, so `c.db.main`,
+ * `c.db.sessions`, etc. are the respective clients.
+ *
+ *   declare module '@katajs/core' {
+ *     interface AppDb {
+ *       main: DrizzleClient<typeof appSchema>;
+ *       sessions: DrizzleClient<typeof sessionsSchema>;
+ *     }
+ *   }
+ *
+ * The augmentation must match the shape passed to `createApp({ db })`.
+ */
 export interface AppDb {}
 
 export type RegistryKey = keyof Registry & string;
@@ -44,7 +65,19 @@ export interface BaseContainer {
  */
 export interface RequestContainer extends BaseContainer {
   resolve<K extends RegistryKey>(key: K): Registry[K];
+  /**
+   * Run `fn` inside a transaction on the database. In a single-database app
+   * call `withTransaction(fn)`; in a multi-database app call
+   * `withTransaction(name, fn)` where `name` is a key of your `db` map. The
+   * `tx` container passed to `fn` has the relevant db (and any repository that
+   * resolves it) bound to the transaction handle. Nested calls reuse the outer
+   * transaction (no savepoints in v0.1).
+   */
   withTransaction<T>(fn: (tx: RequestContainer) => Promise<T>): Promise<T>;
+  withTransaction<T>(
+    name: string,
+    fn: (tx: RequestContainer) => Promise<T>,
+  ): Promise<T>;
 }
 
 /**

@@ -1,10 +1,7 @@
 import { Hono, type MiddlewareHandler } from 'hono';
 import { buildRegistry } from './container';
-import {
-  containerMiddleware,
-  type DbAdapter,
-  type RequestVariables,
-} from './middleware';
+import { containerMiddleware, type RequestVariables } from './middleware';
+import type { DbAdapter } from './db';
 import { errorMapper, type ErrorMapperOptions } from './errors';
 import type { Module } from './module';
 import {
@@ -28,8 +25,25 @@ export type AppConfig<
    */
   bindings?: unknown;
 
-  /** The DB adapter (e.g., `drizzleAdapter()`). */
-  db: DbAdapter;
+  /**
+   * The database layer. Pass a single adapter (e.g., `drizzleAdapter()`) for
+   * the common one-database case — `c.db` is then that client. For multiple
+   * databases, pass a map of named adapters:
+   *
+   *   db: {
+   *     main: drizzleAdapter({ schema: appSchema }),
+   *     sessions: drizzleAdapter({ schema: sessionsSchema, bindingName: 'SESSIONS_HD' }),
+   *   }
+   *
+   * With a map, `c.db.<name>` is each client, and `c.withTransaction(<name>, fn)`
+   * runs a transaction on the named db. Augment the `AppDb` interface to match
+   * the shape you pass (a single client type, or a map of client types).
+   *
+   * To grow a single-db app into a multi-db one, `katajs add database <name>`
+   * does the conversion (config + `AppDb` augmentation + the `c.db` → `c.db.main`
+   * rewrite across modules).
+   */
+  db: DbAdapter | Record<string, DbAdapter>;
 
   /** Modules to compose. Order doesn't affect behaviour but is the boot validation order. */
   modules: Modules;

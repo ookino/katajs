@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import { DEFAULT_DB, withTxClient, type DbBundle } from './db';
 import type {
   AppDb,
   ProvidesMap,
@@ -87,10 +88,9 @@ export type BuildContainerArgs = {
   /** Hono Context for HTTP requests; omit for queue/cron contexts. */
   readonly c?: Context;
   readonly requestId: string;
-  readonly db: AppDb;
+  /** The normalized per-request database layer. */
+  readonly db: DbBundle;
   readonly registry: ReadonlyMap<string, ServiceFactory<unknown>>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  readonly runTransaction?: (db: any, fn: (txDb: any) => Promise<any>) => Promise<any>;
   readonly inTransaction: boolean;
 };
 
@@ -98,13 +98,21 @@ export type BuildContainerArgs = {
  * Build a `RequestContainer` for either an HTTP request or a queue message.
  * Each invocation produces a fresh container with its own resolve cache and
  * `withTransaction` closure.
+ *
+ * `withTransaction` is overloaded:
+ * - single-db apps call `withTransaction(fn)`;
+ * - multi-db apps call `withTransaction(name, fn)`.
+ * At runtime the first argument's type discriminates. The sub-container passed
+ * to `fn` has the relevant db's client swapped for the transaction handle
+ * (other dbs, if any, are unchanged — no cross-database transactions). Nested
+ * calls reuse the outer transaction (no savepoints in v0.1).
  */
 export function buildContainer(args: BuildContainerArgs): RequestContainer {
   const container = {
     env: args.env as never,
     c: args.c ?? queueContextStub,
     requestId: args.requestId,
-    db: args.db,
+    db: args.db.view as AppDb,
   } as unknown as RequestContainer;
 
   (container as { resolve: RequestContainer['resolve'] }).resolve = makeResolver(
@@ -112,26 +120,60 @@ export function buildContainer(args: BuildContainerArgs): RequestContainer {
     container,
   ) as RequestContainer['resolve'];
 
-  (container as { withTransaction: RequestContainer['withTransaction'] }).withTransaction =
-    async (fn) => {
-      if (args.inTransaction) {
-        return fn(container);
-      }
-      if (!args.runTransaction) {
+  const withTransaction = async (...callArgs: unknown[]): Promise<unknown> => {
+    let name: string;
+    let fn: (tx: RequestContainer) => Promise<unknown>;
+
+    if (typeof callArgs[0] === 'string') {
+      name = callArgs[0];
+      fn = callArgs[1] as (tx: RequestContainer) => Promise<unknown>;
+      if (!args.db.multi) {
         throw new Error(
-          '[katajs] withTransaction was called but the configured db adapter ' +
-            "does not support transactions. Use an adapter with a 'runTransaction' method.",
+          `[katajs] withTransaction('${name}', fn) — this app has a single database. ` +
+            `Call withTransaction(fn) instead.`,
         );
       }
-      return args.runTransaction(args.db, async (txDb) => {
-        const txContainer = buildContainer({
-          ...args,
-          db: txDb,
-          inTransaction: true,
-        });
-        return fn(txContainer);
+    } else {
+      fn = callArgs[0] as (tx: RequestContainer) => Promise<unknown>;
+      if (args.db.multi) {
+        const names = Object.keys(args.db.adapters).join(', ');
+        throw new Error(
+          `[katajs] withTransaction(fn) — this app has multiple databases. ` +
+            `Call withTransaction(<name>, fn). Known: ${names}.`,
+        );
+      }
+      name = DEFAULT_DB;
+    }
+
+    if (args.inTransaction) {
+      // Nested call — reuse the outer transaction (no savepoints in v0.1).
+      return fn(container);
+    }
+
+    const adapter = args.db.adapters[name];
+    if (!adapter) {
+      const names = Object.keys(args.db.adapters).join(', ');
+      throw new Error(`[katajs] No database named '${name}'. Known: ${names}.`);
+    }
+    if (!adapter.runTransaction) {
+      throw new Error(
+        `[katajs] The ${args.db.multi ? `'${name}'` : 'configured'} db adapter ` +
+          `does not support transactions (no 'runTransaction' method).`,
+      );
+    }
+
+    return adapter.runTransaction(args.db.clients[name], async (txClient) => {
+      const txContainer = buildContainer({
+        ...args,
+        db: withTxClient(args.db, name, txClient),
+        inTransaction: true,
       });
-    };
+      return fn(txContainer);
+    });
+  };
+
+  (container as { withTransaction: RequestContainer['withTransaction'] }).withTransaction =
+    withTransaction as RequestContainer['withTransaction'];
 
   return container;
 }

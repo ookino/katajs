@@ -1,14 +1,13 @@
 import { buildContainer } from './container';
+import { buildDbBundle, type DbAdapter } from './db';
 import { ValidationError } from './errors';
 import type { Module } from './module';
 import type {
-  AppDb,
   ConsumerSpec,
   ServiceFactory,
   ValidatedBatch,
   ValidatedMessage,
 } from './types';
-import type { DbAdapter } from './middleware';
 
 /**
  * Helper for defining a queue consumer with full contextual typing on the
@@ -77,7 +76,8 @@ export type QueueErrorMapperOptions = {
 export type BuildQueueHandlerConfig = {
   readonly modules: readonly Module[];
   readonly registry: ReadonlyMap<string, ServiceFactory<unknown>>;
-  readonly db: DbAdapter;
+  /** A single DB adapter, or a map of named adapters for multi-database apps. */
+  readonly db: DbAdapter | Record<string, DbAdapter>;
   readonly errorMapper?: QueueErrorMapperOptions;
   /** Override `crypto.randomUUID` for deterministic tests. Used as fallback when message has no `id`. */
   readonly generateRequestId?: () => string;
@@ -129,12 +129,11 @@ export function buildQueueHandler(
     }
 
     const { consumer } = entry;
-    const db = config.db.create(env) as AppDb;
+    const db = buildDbBundle(config.db, env);
     const sharedContainerArgs = {
       env,
       registry: config.registry,
       db,
-      runTransaction: config.db.runTransaction,
       inTransaction: false,
     };
 
