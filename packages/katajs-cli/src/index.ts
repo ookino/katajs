@@ -5,6 +5,7 @@ import { addModule } from './commands/add-module';
 import { addService } from './commands/add-service';
 import { addRoute } from './commands/add-route';
 import { addQueue } from './commands/add-queue';
+import { addDatabase } from './commands/add-database';
 
 const cli = cac('katajs');
 
@@ -15,18 +16,27 @@ cli
   .option('--dlq <DLQ_BINDING>', 'wrangler binding name for the dead-letter queue (for `add queue`)')
   .option('--batch', 'Generate `handleBatch` instead of `handle` (for `add queue`)')
   .option('--no-producer', 'Skip the producer manifest entry (for consumer-only Workers, e.g. apps/worker)')
+  .option('--no-rewrite', 'Skip the c.db → c.db.main rewrite across modules (for `add database`)')
   .example('  katajs add module comments')
   .example('  katajs add service featured --in posts')
   .example('  katajs add route post /comments --in posts')
   .example('  katajs add queue orders --in orders')
   .example('  katajs add queue orders --in orders --dlq ORDERS_DLQ --batch')
   .example('  katajs add queue orders --in orders --no-producer  # consumer-only (apps/worker)')
+  .example('  katajs add database analytics  # db: adapter → db: { main, analytics }')
   .action(
     async (
       kind: string,
       name: string,
       path: string | undefined,
-      opts: { in?: string; binding?: string; dlq?: string; batch?: boolean; producer?: boolean },
+      opts: {
+        in?: string;
+        binding?: string;
+        dlq?: string;
+        batch?: boolean;
+        producer?: boolean;
+        rewrite?: boolean;
+      },
     ) => {
       try {
         switch (kind) {
@@ -67,11 +77,21 @@ cli
               noProducer: opts.producer === false,
             });
             return;
+          case 'database':
+          case 'db':
+          case 'd':
+            p.intro('katajs add database');
+            await addDatabase({
+              name,
+              // cac maps `--no-rewrite` to rewrite=false
+              noRewrite: opts.rewrite === false,
+            });
+            return;
           default:
             // eslint-disable-next-line no-console
             console.error(red(`Unknown target: '${kind}'.`));
             // eslint-disable-next-line no-console
-            console.error('Supported: module, service, route, queue');
+            console.error('Supported: module, service, route, queue, database');
             process.exit(1);
         }
       } catch (err) {
