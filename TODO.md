@@ -138,6 +138,7 @@ The "wrapping useful Hono tools" part. Each is its own optional adapter package,
 
 ### Storage / data
 
+- [ ] **MySQL support in `@katajs/drizzle`** — Hyperdrive supports MySQL as well as Postgres, but the adapter is currently Postgres-only (hardcoded `pg` + `drizzle-orm/node-postgres`, builds a `pg.Pool` from `env.HYPERDRIVE.connectionString`). Add a `dialect: 'postgres' | 'mysql'` option that branches the driver (`pg` ↔ `mysql2`) and the matching `drizzle-orm` entrypoint. The `withTransaction` sub-container wiring is dialect-agnostic (`db.transaction(fn)` is the same shape for both), so the divergence is just the ~15-line driver instantiation — a `dialect` option beats a second `@katajs/drizzle-mysql` package that'd be mostly copy-paste. `pg` and `mysql2` become *optional* peers so a Postgres user never installs `mysql2` and vice versa. Scaffolder may want a `--db mysql` flag down the line. Decide before this lands: does the CLI's `posts` example template stay Postgres-only, or do we ship a MySQL variant?
 - [ ] `@katajs/kv` — Workers KV typed wrapper, treats namespaces as registry-augmented services.
 - [ ] `@katajs/r2` — R2 typed wrapper with upload/download helpers.
 - [ ] `@katajs/cache` — Cache API + KV cache patterns; per-route cache decorators.
